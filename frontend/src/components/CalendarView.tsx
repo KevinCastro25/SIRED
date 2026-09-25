@@ -41,52 +41,52 @@ export const CalendarView: React.FC<Props> = ({
     switch (deporte) {
       case 'padel':
         return {
-          bg: 'bg-cyan-500/15',
-          text: 'text-cyan-400',
-          border: 'border-cyan-500/30',
+          bg: 'bg-sky-50',
+          text: 'text-sky-800',
+          border: 'border-sky-200',
           badge: '🎾 Pádel',
         };
       case 'futbol_8':
       case 'futbol_11':
         return {
-          bg: 'bg-teal-500/15',
-          text: 'text-teal-400',
-          border: 'border-teal-500/30',
+          bg: 'bg-emerald-50',
+          text: 'text-emerald-800',
+          border: 'border-emerald-200',
           badge: '⚽ Fútbol Grande',
         };
       case 'tenis':
         return {
-          bg: 'bg-lime-500/15',
-          text: 'text-lime-400',
-          border: 'border-lime-500/30',
+          bg: 'bg-lime-50',
+          text: 'text-lime-800',
+          border: 'border-lime-200',
           badge: '🎾 Tenis',
         };
       case 'voley':
         return {
-          bg: 'bg-amber-500/15',
-          text: 'text-amber-400',
-          border: 'border-amber-500/30',
+          bg: 'bg-amber-50',
+          text: 'text-amber-800',
+          border: 'border-amber-200',
           badge: '🏐 Vóley Playa',
         };
       default:
         return {
-          bg: 'bg-emerald-500/15',
-          text: 'text-emerald-400',
-          border: 'border-emerald-500/30',
+          bg: 'bg-emerald-50',
+          text: 'text-emerald-800',
+          border: 'border-emerald-200',
           badge: '⚽ Fútbol 5',
         };
     }
   };
 
   return (
-    <div className="bg-[#0f172a] rounded-2xl overflow-hidden shadow-sm flex flex-col border border-slate-800">
+    <div className="bg-white rounded-2xl overflow-hidden shadow-sm flex flex-col border border-slate-200">
       {/* Barra de Control de Fecha y Navegación Rápida */}
-      <div className="p-4 bg-[#0f172a] border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
+      <div className="p-3.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="flex items-center bg-slate-800/90 rounded-xl p-1 border border-slate-700/80 shadow-inner">
+          <div className="flex items-center bg-slate-100 rounded-xl p-0.5 border border-slate-200">
             <button
               onClick={() => moverDia(-1)}
-              className="p-1.5 hover:bg-slate-700/80 rounded-lg text-slate-300 hover:text-white transition"
+              className="p-1.5 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition"
               title="Día anterior"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -96,14 +96,14 @@ export const CalendarView: React.FC<Props> = ({
               className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                 esHoy
                   ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
-              <Sparkles className="w-3 h-3" /> Hoy
+              <Sparkles className="w-3.5 h-3.5" /> Hoy
             </button>
             <button
               onClick={() => moverDia(1)}
-              className="p-1.5 hover:bg-slate-700/80 rounded-lg text-slate-300 hover:text-white transition"
+              className="p-1.5 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition"
               title="Día siguiente"
             >
               <ChevronRight className="w-4 h-4" />
@@ -111,18 +111,30 @@ export const CalendarView: React.FC<Props> = ({
           </div>
 
           <div className="relative flex items-center">
-            <CalendarIcon className="w-4 h-4 text-emerald-400 absolute left-3 pointer-events-none" />
+            <CalendarIcon className="w-4 h-4 text-slate-500 absolute left-3 pointer-events-none" />
             <input
               type="date"
               value={fechaSeleccionada}
               onChange={(e) => onCambiarFecha(e.target.value)}
-              className="bg-slate-800/90 border border-slate-700/80 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500 font-medium transition cursor-pointer shadow-inner"
+              className="bg-slate-100 border border-slate-200 rounded-xl pl-9 pr-3 py-1 text-xs text-slate-800 font-semibold outline-none focus:bg-white focus:border-emerald-600 transition cursor-pointer"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold capitalize text-slate-200 bg-slate-800/80 px-3.5 py-1.5 rounded-xl border border-slate-700/60 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 text-xs">
+            <span className="flex items-center gap-1.5 text-slate-700 font-medium">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block" /> Confirmada
+            </span>
+            <span className="flex items-center gap-1.5 text-slate-700 font-medium ml-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> Anticipo Pendiente
+            </span>
+            <span className="flex items-center gap-1.5 text-slate-500 font-medium ml-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block" /> Disponible
+            </span>
+          </div>
+
+          <span className="text-xs font-bold capitalize text-slate-800 bg-slate-100 px-3.5 py-1.5 rounded-xl border border-slate-200">
             {formatearFecha(fechaSeleccionada)}
           </span>
         </div>
@@ -132,19 +144,19 @@ export const CalendarView: React.FC<Props> = ({
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           <thead>
-            <tr className="bg-slate-900 border-b border-slate-800 text-xs uppercase tracking-wider text-slate-400">
-              <th className="p-3.5 w-24 text-center font-bold border-r border-slate-800 bg-slate-950/60">
+            <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-600">
+              <th className="p-3 w-20 text-center font-bold border-r border-slate-200 bg-slate-100/70">
                 Horario
               </th>
               {canchas.map((c) => {
                 const sportStyle = getDeporteColor(c.deporte);
                 return (
-                  <th key={c.id} className="p-3.5 font-semibold border-r border-slate-800 last:border-r-0 min-w-[260px]">
+                  <th key={c.id} className="p-3 font-semibold border-r border-slate-200 last:border-r-0 min-w-[240px]">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <span className="text-white text-sm font-bold block">{c.nombre}</span>
-                        <span className="text-[10px] text-slate-400 font-normal">
-                          ${(c.precio_estandar / 1000).toFixed(0)}k std • ${(c.precio_pico / 1000).toFixed(0)}k pico
+                        <span className="text-slate-900 text-sm font-bold block">{c.nombre}</span>
+                        <span className="text-slate-500 text-[11px] font-normal">
+                          ${(c.precio_estandar / 1000).toFixed(0)}k normal • ${(c.precio_pico / 1000).toFixed(0)}k pico
                         </span>
                       </div>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${sportStyle.bg} ${sportStyle.text} ${sportStyle.border}`}>
@@ -156,11 +168,11 @@ export const CalendarView: React.FC<Props> = ({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody className="divide-y divide-slate-200">
             {horas.map((slot) => (
-              <tr key={slot.inicio} className="hover:bg-slate-800/30 transition-colors">
+              <tr key={slot.inicio} className="hover:bg-slate-50/70 transition-colors">
                 {/* Eje de Horas */}
-                <td className="p-3 text-center border-r border-slate-800 text-xs font-mono font-bold text-slate-400 bg-slate-950/40 select-none">
+                <td className="p-2.5 text-center border-r border-slate-200 text-xs font-mono font-bold text-slate-600 bg-slate-50 select-none">
                   {slot.inicio}
                 </td>
 
@@ -183,28 +195,28 @@ export const CalendarView: React.FC<Props> = ({
                       <td
                         key={cancha.id}
                         onClick={() => onSeleccionarTurno(cancha, slot.inicio, slot.fin, reserva)}
-                        className="p-1.5 border-r border-slate-800 last:border-r-0 cursor-pointer"
+                        className="p-1.5 border-r border-slate-200 last:border-r-0 cursor-pointer"
                       >
                         <div
-                          className={`p-2.5 rounded-xl border text-xs transition duration-150 relative overflow-hidden group shadow-sm ${
+                          className={`p-2.5 rounded-xl border text-xs transition duration-150 relative overflow-hidden shadow-sm ${
                             esConfirmada
-                              ? 'bg-[#10241b] border-emerald-500/50 text-emerald-100 hover:border-emerald-400'
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-950 hover:bg-emerald-100/70'
                               : esPendiente
                               ? tieneAlerta
-                                ? 'bg-[#2a1215] border-rose-500/60 text-rose-100 hover:border-rose-400'
-                                : 'bg-[#281d0f] border-amber-500/50 text-amber-100 hover:border-amber-400'
-                              : 'diagonal-stripes border-slate-700 text-slate-300'
+                                ? 'bg-rose-50 border-rose-300 text-rose-950 hover:bg-rose-100/70'
+                                : 'bg-amber-50 border-amber-300 text-amber-950 hover:bg-amber-100/70'
+                              : 'diagonal-stripes border-slate-300 text-slate-700'
                           }`}
                         >
                           <div className="flex items-center justify-between font-bold mb-1">
                             <span className="flex items-center gap-1.5 text-[11px]">
-                              {esConfirmada && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                              {esConfirmada && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
                               {esPendiente && (
-                                <Clock className={`w-3.5 h-3.5 ${tieneAlerta ? 'text-rose-400' : 'text-amber-400'}`} />
+                                <Clock className={`w-3.5 h-3.5 ${tieneAlerta ? 'text-rose-600' : 'text-amber-600'}`} />
                               )}
-                              {esBloqueo && <Ban className="w-3.5 h-3.5 text-slate-400" />}
+                              {esBloqueo && <Ban className="w-3.5 h-3.5 text-slate-500" />}
                               
-                              <span className={tieneAlerta ? 'text-rose-300' : ''}>
+                              <span className={tieneAlerta ? 'text-rose-800 font-black' : esConfirmada ? 'text-emerald-900 font-bold' : 'text-amber-900 font-bold'}>
                                 {esConfirmada
                                   ? 'CONFIRMADA'
                                   : esPendiente
@@ -214,19 +226,19 @@ export const CalendarView: React.FC<Props> = ({
                                   : 'BLOQUEADA'}
                               </span>
                             </span>
-                            <span className="font-mono text-[11px] font-bold text-white bg-slate-900/60 px-2 py-0.5 rounded-md border border-white/10">
+                            <span className="font-mono text-[11px] font-bold text-slate-800 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
                               ${(reserva.valor_total / 1000).toFixed(0)}k
                             </span>
                           </div>
 
                           <div className="space-y-0.5 text-[11px]">
-                            <p className="flex items-center gap-1 font-semibold text-white truncate">
+                            <p className="flex items-center gap-1 font-semibold text-slate-900 truncate">
                               <User className="w-3 h-3 text-slate-400 shrink-0" />
                               <span className="truncate">{reserva.clientes?.nombre || 'Reserva Directa'}</span>
                             </p>
                             {reserva.clientes?.telefono_wa && (
-                              <p className="flex items-center gap-1 text-slate-300 text-[10px] font-mono">
-                                <Phone className="w-3 h-3 text-emerald-400 shrink-0" />
+                              <p className="flex items-center gap-1 text-slate-600 text-[10px] font-mono">
+                                <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
                                 <span>{reserva.clientes.telefono_wa}</span>
                               </p>
                             )}
@@ -240,10 +252,10 @@ export const CalendarView: React.FC<Props> = ({
                     <td
                       key={cancha.id}
                       onClick={() => onSeleccionarTurno(cancha, slot.inicio, slot.fin)}
-                      className="p-1.5 border-r border-slate-800/80 last:border-r-0 cursor-pointer group"
+                      className="p-1.5 border-r border-slate-200 last:border-r-0 cursor-pointer group"
                     >
-                      <div className="h-full min-h-[58px] rounded-xl border border-dashed border-slate-800/80 group-hover:border-emerald-500/50 group-hover:bg-emerald-500/5 transition flex items-center justify-center">
-                        <span className="text-xs text-slate-600 group-hover:text-emerald-400 font-medium transition flex items-center gap-1">
+                      <div className="h-full min-h-[58px] rounded-xl border border-dashed border-slate-200 group-hover:border-emerald-500 group-hover:bg-emerald-50/40 transition flex items-center justify-center">
+                        <span className="text-xs text-slate-400 group-hover:text-emerald-700 font-medium transition flex items-center gap-1">
                           + Libre
                         </span>
                       </div>
