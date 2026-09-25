@@ -35,6 +35,23 @@ export interface Reserva {
   }>;
 }
 
+export interface Complejo {
+  id: string;
+  slug?: string;
+  nombre: string;
+  direccion?: string;
+  ciudad?: string;
+  telefono_whatsapp?: string;
+  whatsapp_phone_number_id?: string;
+  whatsapp_token?: string;
+  hora_apertura?: string;
+  hora_cierre?: string;
+  duracion_turno_minutos?: number;
+  nequi_numero?: string;
+  daviplata_numero?: string;
+  titular_cuenta?: string;
+}
+
 export interface Metricas {
   total_reservas: number;
   reservas_confirmadas: number;

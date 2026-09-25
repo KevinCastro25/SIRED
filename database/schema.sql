@@ -32,19 +32,23 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- 3. Tabla: Complejos Deportivos
+-- 3. Tabla: Complejos Deportivos (Multi-tenant / Multi-empresa)
 CREATE TABLE IF NOT EXISTS complejos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug VARCHAR(100) UNIQUE,
     nombre VARCHAR(150) NOT NULL,
     direccion VARCHAR(255),
     ciudad VARCHAR(100) DEFAULT 'Bogotá',
     telefono_whatsapp VARCHAR(25) NOT NULL,
+    whatsapp_phone_number_id VARCHAR(100), -- ID del número en Meta WhatsApp Cloud API
+    whatsapp_token TEXT,                  -- Token propio de este complejo (opcional)
     hora_apertura TIME NOT NULL DEFAULT '06:00:00',
     hora_cierre TIME NOT NULL DEFAULT '23:00:00',
     duracion_turno_minutos INTEGER NOT NULL DEFAULT 60,
     -- Datos de recaudo para el bot (Nequi, Daviplata, etc.)
     nequi_numero VARCHAR(30),
     daviplata_numero VARCHAR(30),
+    titular_cuenta VARCHAR(150) DEFAULT 'Administrador',
     porcentaje_anticipo_minimo NUMERIC(5, 2) DEFAULT 50.00, -- Ej: 50% de anticipo
     creado_en TIMESTAMPTZ DEFAULT NOW(),
     actualizado_en TIMESTAMPTZ DEFAULT NOW()

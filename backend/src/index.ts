@@ -21,9 +21,10 @@ app.use(express.json());
 app.get('/', (req: Request, res: Response) => {
   res.json({
     status: 'online',
-    servicio: 'Sistema Automatizado de Reservas Deportivas - API & WhatsApp Bot',
+    servicio: 'SIRED - Ecosistema Multi-empresa de Reservas Deportivas & WhatsApp Bot',
     base_de_datos: 'Supabase PostgreSQL Conectada',
-    version: '1.0.0',
+    modelo: 'Modelo A (Cada complejo con su propio WhatsApp oficial)',
+    version: '2.0.0',
     webhook_url: '/webhook',
     simulador_bot: '/api/bot/simulate',
     cron_recordatorios: '/api/cron/recordatorios',
@@ -31,7 +32,7 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 // ==============================================================================
-// 2. WHATSAPP CLOUD API - WEBHOOK (META)
+// 2. WHATSAPP CLOUD API - WEBHOOK (META MULTI-EMPRESA)
 // ==============================================================================
 
 app.get('/webhook', (req: Request, res: Response) => {
@@ -64,29 +65,40 @@ app.post('/webhook', async (req: Request, res: Response) => {
         body.entry[0].changes[0].value.messages &&
         body.entry[0].changes[0].value.messages[0]
       ) {
-        const messageObj = body.entry[0].changes[0].value.messages[0];
-        const contactObj = body.entry[0].changes[0].value.contacts?.[0];
+        const value = body.entry[0].changes[0].value;
+        const messageObj = value.messages[0];
+        const contactObj = value.contacts?.[0];
 
-        const telefono = messageObj.from;
+        // 1. Identificar el número de teléfono del establecimiento que recibió el mensaje (Modelo A)
+        const phoneId = value.metadata?.phone_number_id;
+        const displayPhone = value.metadata?.display_phone_number;
+
+        // Buscar a qué empresa le pertenece este número de WhatsApp
+        const complejo = await BookingService.getComplejoByPhone(phoneId, displayPhone);
+
+        const telefonoCliente = messageObj.from;
         const texto = messageObj.text?.body || '';
         const nombrePush = contactObj?.profile?.name;
 
-        const respuestaBot = await WhatsAppFlow.procesarMensaje(telefono, texto, nombrePush);
-        await enviarMensajeWhatsApp(telefono, respuestaBot);
+        // 2. Procesar con las canchas, tarifas y Nequi de ESE complejo
+        const respuestaBot = await WhatsAppFlow.procesarMensaje(telefonoCliente, texto, nombrePush, complejo);
+
+        // 3. Responder al cliente usando el token y número de ese complejo
+        await enviarMensajeWhatsApp(telefonoCliente, respuestaBot, complejo.whatsapp_token, phoneId);
       }
       res.sendStatus(200);
     } else {
       res.sendStatus(404);
     }
   } catch (error) {
-    console.error('Error procesando webhook:', error);
+    console.error('Error procesando webhook multi-tenant:', error);
     res.sendStatus(500);
   }
 });
 
-async function enviarMensajeWhatsApp(to: string, message: string) {
-  const token = process.env.WHATSAPP_TOKEN;
-  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+async function enviarMensajeWhatsApp(to: string, message: string, customToken?: string, customPhoneId?: string) {
+  const token = customToken || process.env.WHATSAPP_TOKEN;
+  const phoneId = customPhoneId || process.env.WHATSAPP_PHONE_NUMBER_ID;
 
   if (!token || !phoneId) {
     console.log(`[WHATSAPP MENSAJE a ${to}]:\n${message}`);
@@ -115,35 +127,83 @@ async function enviarMensajeWhatsApp(to: string, message: string) {
 }
 
 // ==============================================================================
-// 3. SIMULADOR CONVERSACIONAL DE WHATSAPP
+// 3. SIMULADOR CONVERSACIONAL DE WHATSAPP (SOPORTA SELECCIÓN DE EMPRESA)
 // ==============================================================================
 app.post('/api/bot/simulate', async (req: Request, res: Response) => {
   try {
-    const { telefono = '573009999999', mensaje = 'HOLA', nombre = 'Jugador' } = req.body;
-    const respuesta = await WhatsAppFlow.procesarMensaje(telefono, mensaje, nombre);
-    res.json({ remitente: telefono, mensaje_recibido: mensaje, respuesta_bot: respuesta });
+    const { telefono = '573009999999', mensaje = 'HOLA', nombre = 'Jugador', complejo_id } = req.body;
+    let complejo = null;
+
+    if (complejo_id) {
+      complejo = await BookingService.getComplejo(complejo_id);
+    }
+    if (!complejo) {
+      const complejos = await BookingService.getComplejos();
+      complejo = complejos[0];
+    }
+
+    const respuesta = await WhatsAppFlow.procesarMensaje(telefono, mensaje, nombre, complejo);
+    res.json({
+      complejo: complejo.nombre,
+      remitente: telefono,
+      mensaje_recibido: mensaje,
+      respuesta_bot: respuesta,
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
 // ==============================================================================
-// 4. ENDPOINTS REST CONECTADOS A SUPABASE
+// 4. GESTIÓN MULTI-TENANT DE EMPRESAS (COMPLEJOS)
 // ==============================================================================
 
-app.get('/api/canchas', async (req: Request, res: Response) => {
-  const { data, error } = await supabase.from('canchas').select('*').order('nombre');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+// Listar todos los complejos deportivos
+app.get('/api/complejos', async (req: Request, res: Response) => {
+  try {
+    const complejos = await BookingService.getComplejos();
+    res.json(complejos);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// Registrar un nuevo complejo deportivo en la plataforma
+app.post('/api/complejos', async (req: Request, res: Response) => {
+  try {
+    const nuevoComplejo = await BookingService.crearComplejo(req.body);
+    res.status(201).json(nuevoComplejo);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==============================================================================
+// 5. ENDPOINTS REST POR COMPLEJO (CALENDARIO, RESERVAS, MÉTRICAS)
+// ==============================================================================
+
+// Lista de Canchas filtradas por complejo
+app.get('/api/canchas', async (req: Request, res: Response) => {
+  const { complejo_id } = req.query;
+  try {
+    const canchas = await BookingService.getCanchas(complejo_id as string | undefined);
+    res.json(canchas);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Lista de Reservas para el Calendario (filtradas por complejo)
 app.get('/api/reservas', async (req: Request, res: Response) => {
-  const { desde, hasta } = req.query;
+  const { desde, hasta, complejo_id } = req.query;
 
   let query = supabase
     .from('reservas')
-    .select('*, canchas(nombre, deporte), clientes(nombre, telefono_wa), pagos_anticipos(*)');
+    .select('*, canchas!inner(id, nombre, deporte, complejo_id), clientes(nombre, telefono_wa), pagos_anticipos(*)');
 
+  if (complejo_id) {
+    query = query.eq('canchas.complejo_id', complejo_id as string);
+  }
   if (desde) query = query.gte('fecha_inicio', desde as string);
   if (hasta) query = query.lte('fecha_fin', hasta as string);
 
@@ -152,6 +212,7 @@ app.get('/api/reservas', async (req: Request, res: Response) => {
   res.json(data);
 });
 
+// Bloquear Franja Horaria (Mantenimiento, torneo, lluvia)
 app.post('/api/bloqueos', async (req: Request, res: Response) => {
   const { cancha_id, fecha_inicio, fecha_fin, motivo } = req.body;
 
@@ -169,6 +230,7 @@ app.post('/api/bloqueos', async (req: Request, res: Response) => {
   res.status(201).json(data);
 });
 
+// Actualizar estado de una reserva
 app.patch('/api/reservas/:id/estado', async (req: Request, res: Response) => {
   const { id } = req.params;
   const { estado } = req.body;
@@ -183,12 +245,17 @@ app.patch('/api/reservas/:id/estado', async (req: Request, res: Response) => {
   res.json(data);
 });
 
+// Métricas y Resumen Financiero filtradas por complejo
 app.get('/api/metricas', async (req: Request, res: Response) => {
   try {
-    const { data: reservas, error } = await supabase
-      .from('reservas')
-      .select('estado, valor_total, valor_anticipo_requerido');
+    const { complejo_id } = req.query;
+    let query = supabase.from('reservas').select('estado, valor_total, valor_anticipo_requerido, canchas!inner(complejo_id)');
 
+    if (complejo_id) {
+      query = query.eq('canchas.complejo_id', complejo_id as string);
+    }
+
+    const { data: reservas, error } = await query;
     if (error) throw error;
 
     const totalReservas = reservas?.length || 0;

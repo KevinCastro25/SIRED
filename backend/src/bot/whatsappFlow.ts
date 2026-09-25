@@ -1,7 +1,8 @@
-import { BookingService, Cancha, HorarioDisponible } from '../services/bookingService.js';
+import { BookingService, Complejo, Cancha, HorarioDisponible } from '../services/bookingService.js';
 
 interface UserSession {
   paso: 'INICIO' | 'SELECCION_CANCHA' | 'SELECCION_FECHA' | 'SELECCION_HORA' | 'CONFIRMACION' | 'ESPERA_PAGO';
+  complejoId?: string;
   canchasDisponibles?: Cancha[];
   canchaSeleccionada?: Cancha;
   fechaSeleccionada?: string; // YYYY-MM-DD
@@ -15,12 +16,23 @@ interface UserSession {
 const sesiones: Map<string, UserSession> = new Map();
 
 export class WhatsAppFlow {
-  static async procesarMensaje(telefono: string, texto: string, nombrePush?: string): Promise<string> {
+  /**
+   * Procesa el mensaje identificando a qué complejo deportivo pertenece
+   */
+  static async procesarMensaje(
+    telefono: string,
+    texto: string,
+    nombrePush?: string,
+    complejoDirecto?: Complejo
+  ): Promise<string> {
     const ahora = Date.now();
     let session = sesiones.get(telefono);
 
-    if (!session || ahora - session.ultimoMensaje > 30 * 60 * 1000) {
-      session = { paso: 'INICIO', ultimoMensaje: ahora };
+    // Obtener complejo asignado
+    const complejo = complejoDirecto || (await BookingService.getComplejos())[0];
+
+    if (!session || ahora - session.ultimoMensaje > 30 * 60 * 1000 || session.complejoId !== complejo.id) {
+      session = { paso: 'INICIO', complejoId: complejo.id, ultimoMensaje: ahora };
       sesiones.set(telefono, session);
     }
     session.ultimoMensaje = ahora;
@@ -33,7 +45,7 @@ export class WhatsAppFlow {
 
     switch (session.paso) {
       case 'INICIO':
-        return await this.manejarInicio(telefono, session, nombrePush);
+        return await this.manejarInicio(telefono, session, complejo, nombrePush);
 
       case 'SELECCION_CANCHA':
         return await this.manejarSeleccionCancha(input, session);
@@ -42,27 +54,37 @@ export class WhatsAppFlow {
         return await this.manejarSeleccionFecha(input, session);
 
       case 'SELECCION_HORA':
-        return await this.manejarSeleccionHora(input, session, telefono);
+        return await this.manejarSeleccionHora(input, session, telefono, complejo);
 
       case 'ESPERA_PAGO':
-        return await this.manejarEsperaPago(input, session);
+        return await this.manejarEsperaPago(input, session, complejo);
 
       default:
         session.paso = 'INICIO';
-        return '¡Hola! Escribe *HOLA* o *1* para comenzar tu reserva deportiva ⚽🎾.';
+        return `¡Hola! Escribe *HOLA* o *1* para comenzar tu reserva en *${complejo.nombre}* ⚽🎾.`;
     }
   }
 
-  private static async manejarInicio(telefono: string, session: UserSession, nombrePush?: string): Promise<string> {
+  private static async manejarInicio(
+    telefono: string,
+    session: UserSession,
+    complejo: Complejo,
+    nombrePush?: string
+  ): Promise<string> {
     await BookingService.getOrCreateCliente(telefono, nombrePush);
 
-    const canchas = await BookingService.getCanchas();
+    // Consultar ÚNICAMENTE las canchas de esta empresa
+    const canchas = await BookingService.getCanchas(complejo.id);
     session.canchasDisponibles = canchas;
     session.paso = 'SELECCION_CANCHA';
 
-    let respuesta = `👋 ¡Hola ${nombrePush || ''}! Bienvenido a nuestro sistema de reservas 24/7.\n\n`;
-    respuesta += `¿En qué cancha deseas jugar? Selecciona el número:\n`;
+    let respuesta = `👋 ¡Hola ${nombrePush || ''}! Bienvenido a las reservas 24/7 de *${complejo.nombre}*.\n\n`;
 
+    if (canchas.length === 0) {
+      return respuesta + '⚠️ Este complejo aún no tiene canchas activas registradas.';
+    }
+
+    respuesta += `¿En qué cancha deseas jugar? Selecciona el número:\n`;
     canchas.forEach((c, idx) => {
       respuesta += `*${idx + 1}*. ${c.nombre} (${c.deporte.toUpperCase()})\n`;
     });
@@ -127,7 +149,12 @@ export class WhatsAppFlow {
     return respuesta;
   }
 
-  private static async manejarSeleccionHora(input: string, session: UserSession, telefono: string): Promise<string> {
+  private static async manejarSeleccionHora(
+    input: string,
+    session: UserSession,
+    telefono: string,
+    complejo: Complejo
+  ): Promise<string> {
     const idx = parseInt(input, 10) - 1;
     if (isNaN(idx) || !session.horariosDisponibles || !session.horariosDisponibles[idx]) {
       return '⚠️ Por favor selecciona un número de horario válido de la lista.';
@@ -142,13 +169,14 @@ export class WhatsAppFlow {
     const fechaFinIso = `${session.fechaSeleccionada}T${horario.hora_fin}Z`;
 
     try {
+      const porcentaje = complejo.porcentaje_anticipo_minimo ?? 50;
       const reserva = await BookingService.crearPreReserva({
         canchaId: session.canchaSeleccionada!.id,
         clienteId: cliente.id,
         fechaInicio: fechaInicioIso,
         fechaFin: fechaFinIso,
         valorTotal: horario.precio,
-        porcentajeAnticipo: 50,
+        porcentajeAnticipo: porcentaje,
       });
 
       session.reservaId = reserva.id;
@@ -157,42 +185,48 @@ export class WhatsAppFlow {
       const anticipoFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(reserva.valor_anticipo_requerido);
       const totalFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(horario.precio);
 
+      const titular = complejo.titular_cuenta || complejo.nombre;
+      const nequi = complejo.nequi_numero || 'Consultar con administración';
+      const daviplata = complejo.daviplata_numero || nequi;
+
       return `🔒 *¡Turno apartado temporalmente por 15 minutos!*\n\n` +
+        `🏢 Establecimiento: *${complejo.nombre}*\n` +
         `🏟️ Cancha: *${session.canchaSeleccionada!.nombre}*\n` +
         `📅 Fecha: *${session.fechaSeleccionada}*\n` +
         `⏰ Horario: *${horario.hora_inicio.slice(0, 5)} - ${horario.hora_fin.slice(0, 5)}*\n` +
         `💰 Total: *${totalFmt}*\n` +
-        `💵 Anticipo para asegurar reserva: *${anticipoFmt}* (50%)\n\n` +
-        `📲 *Datos de Transferencia:*\n` +
-        `• Nequi / Daviplata: *3001234567*\n` +
-        `• A nombre de: *Club Deportivo El Diamante*\n\n` +
-        `👉 Una vez realizado el pago, responde con la palabra *PAGADO* o el número de comprobante/referencia para confirmar tu reserva al instante.`;
+        `💵 Anticipo requerido: *${anticipoFmt}* (${porcentaje}%)\n\n` +
+        `📲 *Datos de Recaudo Oficial:*\n` +
+        `• Nequi / Daviplata: *${nequi}*\n` +
+        `• Titular: *${titular}*\n\n` +
+        `👉 Una vez realizada la transferencia, responde con la palabra *PAGADO* o el número de comprobante para confirmar tu reserva al instante.`;
     } catch (err: any) {
       return `❌ ${err.message || 'Error al apartar el turno'}. Por favor selecciona otro horario o escribe *MENU*.`;
     }
   }
 
-  private static async manejarEsperaPago(input: string, session: UserSession): Promise<string> {
+  private static async manejarEsperaPago(input: string, session: UserSession, complejo: Complejo): Promise<string> {
     if (!session.reservaId) {
       session.paso = 'INICIO';
       return 'No hay ninguna reserva en proceso. Escribe *HOLA* para iniciar una nueva.';
     }
 
+    const porcentaje = complejo.porcentaje_anticipo_minimo ?? 50;
     await BookingService.registrarPagoAnticipo({
       reservaId: session.reservaId,
       metodo: 'nequi',
-      monto: session.horarioSeleccionado!.precio * 0.5,
+      monto: session.horarioSeleccionado!.precio * (porcentaje / 100),
       referencia: input,
     });
 
     session.paso = 'INICIO';
 
     return `🎉 *¡RESERVA CONFIRMADA CON ÉXITO!*\n\n` +
-      `✅ Tu turno ha quedado asegurado en nuestro calendario oficial.\n` +
+      `🏢 Establecimiento: *${complejo.nombre}*\n` +
       `🏟️ Cancha: *${session.canchaSeleccionada?.nombre}*\n` +
       `📅 Fecha: *${session.fechaSeleccionada}*\n` +
       `⏰ Horario: *${session.horarioSeleccionado?.hora_inicio.slice(0, 5)} a ${session.horarioSeleccionado?.hora_fin.slice(0, 5)}*\n\n` +
       `🔔 Te enviaremos un recordatorio 2 horas antes de tu partido.\n` +
-      `¡Que tengas un excelente juego! Escribe *MENU* cuando desees agendar otra fecha.`;
+      `¡Que tengas un excelente juego en ${complejo.nombre}!`;
   }
 }

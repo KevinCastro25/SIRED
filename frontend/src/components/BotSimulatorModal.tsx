@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Send, Bot, RefreshCw, X, MessageSquare } from 'lucide-react';
+import { Complejo } from '../types.ts';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onReservaCreada?: () => void;
+  complejoSeleccionado?: Complejo;
 }
 
 interface MensajeChat {
@@ -14,12 +16,17 @@ interface MensajeChat {
   hora: string;
 }
 
-export const BotSimulatorModal: React.FC<Props> = ({ isOpen, onClose, onReservaCreada }) => {
+export const BotSimulatorModal: React.FC<Props> = ({
+  isOpen,
+  onClose,
+  onReservaCreada,
+  complejoSeleccionado,
+}) => {
   const [mensajes, setMensajes] = useState<MensajeChat[]>([
     {
       id: '1',
       autor: 'bot',
-      texto: '👋 ¡Hola! Soy el asistente 24/7 de reservas del complejo deportivo.\nEscribe *HOLA* para consultar canchas y horarios disponibles.',
+      texto: `👋 ¡Hola! Soy el asistente 24/7 de reservas de ${complejoSeleccionado?.nombre || 'tu complejo deportivo'}.\nEscribe *HOLA* para consultar canchas y horarios disponibles.`,
       hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -53,6 +60,7 @@ export const BotSimulatorModal: React.FC<Props> = ({ isOpen, onClose, onReservaC
           telefono: telefonoDemo,
           mensaje: texto,
           nombre: 'Santiago (Capitán)',
+          complejo_id: complejoSeleccionado?.id,
         }),
       });
 
@@ -103,10 +111,12 @@ export const BotSimulatorModal: React.FC<Props> = ({ isOpen, onClose, onReservaC
             🤖
           </div>
           <div>
-            <h3 className="font-semibold text-sm">Bot WhatsApp Reservas 24/7</h3>
+            <h3 className="font-semibold text-sm truncate max-w-[210px]">
+              {complejoSeleccionado ? complejoSeleccionado.nombre : 'Bot WhatsApp 24/7'}
+            </h3>
             <p className="text-xs text-emerald-200 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-green-400 inline-block animate-ping" />
-              En línea (Canal Oficial)
+              {complejoSeleccionado?.telefono_whatsapp || 'Canal Oficial'}
             </p>
           </div>
         </div>
@@ -127,9 +137,16 @@ export const BotSimulatorModal: React.FC<Props> = ({ isOpen, onClose, onReservaC
         </div>
       </div>
 
-      <div className="bg-slate-800/80 px-4 py-2 text-[11px] text-slate-300 border-b border-slate-700 flex items-center gap-2">
-        <MessageSquare className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-        <span>Prueba la atención 24/7 en tiempo real con Supabase.</span>
+      <div className="bg-slate-800/80 px-4 py-2 text-[11px] text-slate-300 border-b border-slate-700 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span>Simulador multi-empresa Modelo A</span>
+        </div>
+        {complejoSeleccionado && (
+          <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">
+            {complejoSeleccionado.ciudad || 'Colombia'}
+          </span>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]">

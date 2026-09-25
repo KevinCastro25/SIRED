@@ -1,7 +1,23 @@
 import { supabase } from '../config/supabase.js';
 
+export interface Complejo {
+  id: string;
+  slug?: string;
+  nombre: string;
+  direccion?: string;
+  ciudad?: string;
+  telefono_whatsapp: string;
+  whatsapp_phone_number_id?: string;
+  whatsapp_token?: string;
+  nequi_numero?: string;
+  daviplata_numero?: string;
+  titular_cuenta?: string;
+  porcentaje_anticipo_minimo?: number;
+}
+
 export interface Cancha {
   id: string;
+  complejo_id: string;
   nombre: string;
   deporte: string;
   precio_estandar: number;
@@ -16,6 +32,75 @@ export interface HorarioDisponible {
 }
 
 export class BookingService {
+  /**
+   * Obtiene todos los complejos registrados (Multi-empresa)
+   */
+  static async getComplejos(): Promise<Complejo[]> {
+    const { data, error } = await supabase.from('complejos').select('*').order('nombre');
+    if (error) throw error;
+    return data || [];
+  }
+
+  /**
+   * Obtiene un complejo por su ID o por su Slug
+   */
+  static async getComplejo(identificador: string): Promise<Complejo | null> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identificador);
+    let query = supabase.from('complejos').select('*');
+    if (isUuid) {
+      query = query.eq('id', identificador);
+    } else {
+      query = query.eq('slug', identificador);
+    }
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Identifica qué empresa recibió el mensaje de WhatsApp a partir del Phone ID de Meta o el número
+   */
+  static async getComplejoByPhone(phoneId?: string, displayPhone?: string): Promise<Complejo> {
+    if (phoneId) {
+      const { data } = await supabase
+        .from('complejos')
+        .select('*')
+        .eq('whatsapp_phone_number_id', phoneId)
+        .maybeSingle();
+      if (data) return data;
+    }
+
+    if (displayPhone) {
+      const limpio = displayPhone.replace(/\D/g, '');
+      const { data } = await supabase
+        .from('complejos')
+        .select('*')
+        .ilike('telefono_whatsapp', `%${limpio}%`)
+        .maybeSingle();
+      if (data) return data;
+    }
+
+    // Si no coincide o es demo, retornar el primer complejo registrado
+    const complejos = await this.getComplejos();
+    if (complejos.length > 0) return complejos[0];
+
+    throw new Error('No hay complejos deportivos configurados en el sistema.');
+  }
+
+  /**
+   * Crea una nueva empresa / complejo deportivo en la plataforma
+   */
+  static async crearComplejo(datos: Partial<Complejo>): Promise<Complejo> {
+    const { data, error } = await supabase
+      .from('complejos')
+      .insert(datos)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
   /**
    * Obtiene o crea un cliente en la base de datos a partir de su número de WhatsApp
    */
@@ -46,7 +131,7 @@ export class BookingService {
   }
 
   /**
-   * Obtiene todas las canchas activas registradas en Supabase
+   * Obtiene todas las canchas activas registradas en Supabase (filtradas por complejo)
    */
   static async getCanchas(complejoId?: string): Promise<Cancha[]> {
     let query = supabase.from('canchas').select('*').eq('activa', true).order('nombre');
