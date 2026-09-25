@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CalendarView } from './components/CalendarView.tsx';
 import { MetricCards } from './components/MetricCards.tsx';
+import { AnalyticsCharts } from './components/AnalyticsCharts.tsx';
 import { NewBookingModal } from './components/NewBookingModal.tsx';
 import { NewComplejoModal } from './components/NewComplejoModal.tsx';
 import { LoginScreen } from './components/LoginScreen.tsx';
@@ -317,6 +318,13 @@ export function App() {
         </div>
 
         <MetricCards metricas={metricas} />
+
+        <AnalyticsCharts
+          canchas={canchas}
+          reservas={reservas}
+          metricas={metricas}
+          nombreComplejo={complejoActivo?.nombre || 'Complejo Deportivo'}
+        />
 
         {canchas.length > 0 ? (
           <CalendarView
