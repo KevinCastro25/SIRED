@@ -6,7 +6,8 @@ import { NewComplejoModal } from './components/NewComplejoModal.tsx';
 import { LoginScreen } from './components/LoginScreen.tsx';
 import { Cancha, Reserva, Metricas, Complejo, PerfilUsuario } from './types.ts';
 import { supabase } from './config/supabase.ts';
-import { RefreshCw, Trophy, BellRing, Building2, PlusCircle, Phone, LogOut } from 'lucide-react';
+import { BrandLogo } from './components/BrandLogo.tsx';
+import { RefreshCw, BellRing, Building2, PlusCircle, Phone, LogOut } from 'lucide-react';
 
 export function App() {
   const hoyIso = new Date().toISOString().split('T')[0];
@@ -172,29 +173,22 @@ export function App() {
   const esSuperAdmin = usuarioActual.rol === 'superadmin';
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      <header className="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md px-6 py-3.5">
+    <div className="min-h-screen bg-[#070a11] text-slate-100 flex flex-col font-sans relative overflow-x-hidden">
+      {/* Resplandor ambiental de estadio en la cabecera */}
+      <div className="stadium-glow absolute top-0 left-0 right-0 h-96 pointer-events-none" />
+
+      <header className="glass-panel sticky top-0 z-40 px-6 py-3 border-b border-white/[0.08]">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Trophy className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-white flex items-center gap-2">
-                SIRED • Visor de Reservas
-                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
-                  esSuperAdmin
-                    ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                    : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                }`}>
-                  {esSuperAdmin ? '👑 SuperAdmin' : '🏢 Club Autorizado'}
-                </span>
-              </h1>
-              <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
-                Base de Datos PostgreSQL (Supabase)
-              </p>
-            </div>
+            <BrandLogo size="md" />
+            <div className="hidden sm:block h-6 w-px bg-slate-800 mx-1" />
+            <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+              esSuperAdmin
+                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+            }`}>
+              {esSuperAdmin ? '👑 SuperAdmin' : '🏢 Club Autorizado'}
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -278,32 +272,47 @@ export function App() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-6">
         {/* Banner de información de la empresa activa */}
-        <div className="mb-6 bg-gradient-to-r from-emerald-950/60 to-slate-900 border border-emerald-500/30 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl">
-              <BellRing className="w-5 h-5" />
+        <div className="glass-panel rounded-2xl p-4.5 mb-6 flex flex-wrap items-center justify-between gap-4 border border-white/[0.08] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-48 h-20 bg-emerald-500/10 blur-3xl pointer-events-none" />
+
+          <div className="flex items-center gap-3.5 z-10">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-600/30 to-teal-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shadow-inner">
+              <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                {complejoActivo?.nombre || 'Complejo Deportivo'}
+              <div className="flex items-center gap-2">
+                <h4 className="text-base font-extrabold text-white tracking-tight">
+                  {complejoActivo?.nombre || 'Complejo Deportivo'}
+                </h4>
                 {complejoActivo?.ciudad && (
-                  <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-md font-normal border border-slate-700">
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-800/90 text-slate-300 px-2.5 py-0.5 rounded-full border border-slate-700/80">
                     {complejoActivo.ciudad}
                   </span>
                 )}
-              </h4>
-              <p className="text-xs text-slate-300 flex items-center gap-2 mt-0.5">
-                <span className="flex items-center gap-1 text-emerald-300">
-                  <Phone className="w-3 h-3" /> WhatsApp: {complejoActivo?.telefono_whatsapp || 'Oficial Meta Cloud API'}
+              </div>
+              <p className="text-xs text-slate-400 flex flex-wrap items-center gap-2.5 mt-0.5">
+                <span className="flex items-center gap-1.5 text-emerald-400 font-mono font-medium">
+                  <Phone className="w-3.5 h-3.5" /> {complejoActivo?.telefono_whatsapp || 'Canal Oficial Meta'}
                 </span>
                 {complejoActivo?.nequi_numero && (
-                  <span className="text-slate-400">• Nequi/Daviplata: {complejoActivo.nequi_numero}</span>
+                  <span className="text-slate-400 flex items-center gap-1">
+                    • Nequi/Davi: <strong className="text-slate-200 font-mono">{complejoActivo.nequi_numero}</strong>
+                  </span>
+                )}
+                {complejoActivo?.titular_cuenta && (
+                  <span className="text-slate-400 hidden md:inline">
+                    ({complejoActivo.titular_cuenta})
+                  </span>
                 )}
               </p>
             </div>
           </div>
-          <div className="text-right text-xs text-slate-400">
-            <span>Horario: {complejoActivo?.hora_apertura || '06:00'} - {complejoActivo?.hora_cierre || '23:00'}</span>
+
+          <div className="text-right z-10">
+            <span className="text-[11px] font-semibold text-slate-300 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60 inline-flex items-center gap-1.5 font-mono shadow-sm">
+              <BellRing className="w-3 h-3 text-emerald-400" />
+              {complejoActivo?.hora_apertura ? complejoActivo.hora_apertura.slice(0, 5) : '06:00'} - {complejoActivo?.hora_cierre ? complejoActivo.hora_cierre.slice(0, 5) : '23:00'}
+            </span>
           </div>
         </div>
 

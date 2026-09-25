@@ -1,6 +1,6 @@
 import React from 'react';
 import { Cancha, Reserva } from '../types.ts';
-import { CheckCircle2, Clock, Ban, User, Phone } from 'lucide-react';
+import { CheckCircle2, Clock, Ban, User, Phone, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
 
 interface Props {
   canchas: Cancha[];
@@ -35,63 +35,132 @@ export const CalendarView: React.FC<Props> = ({
     onCambiarFecha(d.toISOString().split('T')[0]);
   };
 
+  const esHoy = fechaSeleccionada === new Date().toISOString().split('T')[0];
+
+  const getDeporteColor = (deporte: string) => {
+    switch (deporte) {
+      case 'padel':
+        return {
+          bg: 'bg-cyan-500/15',
+          text: 'text-cyan-400',
+          border: 'border-cyan-500/30',
+          badge: '🎾 Pádel',
+        };
+      case 'futbol_8':
+      case 'futbol_11':
+        return {
+          bg: 'bg-teal-500/15',
+          text: 'text-teal-400',
+          border: 'border-teal-500/30',
+          badge: '⚽ Fútbol Grande',
+        };
+      case 'tenis':
+        return {
+          bg: 'bg-lime-500/15',
+          text: 'text-lime-400',
+          border: 'border-lime-500/30',
+          badge: '🎾 Tenis',
+        };
+      case 'voley':
+        return {
+          bg: 'bg-amber-500/15',
+          text: 'text-amber-400',
+          border: 'border-amber-500/30',
+          badge: '🏐 Vóley Playa',
+        };
+      default:
+        return {
+          bg: 'bg-emerald-500/15',
+          text: 'text-emerald-400',
+          border: 'border-emerald-500/30',
+          badge: '⚽ Fútbol 5',
+        };
+    }
+  };
+
   return (
-    <div className="bg-slate-800/90 border border-slate-700/60 rounded-xl overflow-hidden shadow-2xl flex flex-col">
-      <div className="p-4 bg-slate-800 border-b border-slate-700 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => moverDia(-1)}
-            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-semibold transition"
-          >
-            ← Día anterior
-          </button>
-          <button
-            onClick={() => onCambiarFecha(new Date().toISOString().split('T')[0])}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-semibold transition text-white"
-          >
-            Hoy
-          </button>
-          <button
-            onClick={() => moverDia(1)}
-            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-semibold transition"
-          >
-            Día siguiente →
-          </button>
-          <input
-            type="date"
-            value={fechaSeleccionada}
-            onChange={(e) => onCambiarFecha(e.target.value)}
-            className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1 text-sm text-slate-200 outline-none focus:border-emerald-500"
-          />
+    <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-white/[0.08]">
+      {/* Barra de Control de Fecha y Navegación Rápida */}
+      <div className="p-4 bg-slate-900/80 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-slate-800/90 rounded-xl p-1 border border-slate-700/80 shadow-inner">
+            <button
+              onClick={() => moverDia(-1)}
+              className="p-1.5 hover:bg-slate-700/80 rounded-lg text-slate-300 hover:text-white transition"
+              title="Día anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onCambiarFecha(new Date().toISOString().split('T')[0])}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                esHoy
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+              }`}
+            >
+              <Sparkles className="w-3 h-3" /> Hoy
+            </button>
+            <button
+              onClick={() => moverDia(1)}
+              className="p-1.5 hover:bg-slate-700/80 rounded-lg text-slate-300 hover:text-white transition"
+              title="Día siguiente"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="relative flex items-center">
+            <CalendarIcon className="w-4 h-4 text-emerald-400 absolute left-3 pointer-events-none" />
+            <input
+              type="date"
+              value={fechaSeleccionada}
+              onChange={(e) => onCambiarFecha(e.target.value)}
+              className="bg-slate-800/90 border border-slate-700/80 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500 font-medium transition cursor-pointer shadow-inner"
+            />
+          </div>
         </div>
-        <div>
-          <span className="text-sm font-medium capitalize text-slate-300">
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold capitalize text-slate-200 bg-slate-800/80 px-3.5 py-1.5 rounded-xl border border-slate-700/60 shadow-sm">
             {formatearFecha(fechaSeleccionada)}
           </span>
         </div>
       </div>
 
+      {/* Grilla Horaria de Escenarios Deportivos */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           <thead>
-            <tr className="bg-slate-900/80 border-b border-slate-700 text-xs uppercase text-slate-400">
-              <th className="p-3 w-28 text-center font-bold border-r border-slate-700">Horario</th>
-              {canchas.map((c) => (
-                <th key={c.id} className="p-3 font-semibold border-r border-slate-700 last:border-r-0 min-w-[240px]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-white text-sm">{c.nombre}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-emerald-400 border border-emerald-500/30">
-                      {c.deporte.replace('_', ' ').toUpperCase()}
-                    </span>
-                  </div>
-                </th>
-              ))}
+            <tr className="bg-slate-900/90 border-b border-slate-800 text-xs uppercase tracking-wider text-slate-400">
+              <th className="p-3.5 w-24 text-center font-bold border-r border-slate-800/80 bg-slate-950/60">
+                Horario
+              </th>
+              {canchas.map((c) => {
+                const sportStyle = getDeporteColor(c.deporte);
+                return (
+                  <th key={c.id} className="p-3.5 font-semibold border-r border-slate-800/80 last:border-r-0 min-w-[260px]">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="text-white text-sm font-bold block">{c.nombre}</span>
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          ${(c.precio_estandar / 1000).toFixed(0)}k std • ${(c.precio_pico / 1000).toFixed(0)}k pico
+                        </span>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${sportStyle.bg} ${sportStyle.text} ${sportStyle.border}`}>
+                        {sportStyle.badge}
+                      </span>
+                    </div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700/50">
+          <tbody className="divide-y divide-slate-800/60">
             {horas.map((slot) => (
-              <tr key={slot.inicio} className="hover:bg-slate-750 transition-colors">
-                <td className="p-3 text-center border-r border-slate-700 text-xs font-mono font-semibold text-slate-400 bg-slate-850/40">
+              <tr key={slot.inicio} className="hover:bg-slate-800/20 transition-colors">
+                {/* Eje de Horas */}
+                <td className="p-3 text-center border-r border-slate-800/80 text-xs font-mono font-bold text-slate-400 bg-slate-950/40 select-none">
                   {slot.inicio}
                 </td>
 
@@ -105,45 +174,59 @@ export const CalendarView: React.FC<Props> = ({
                   });
 
                   if (reserva) {
-                    const esConfirmada = reserva.estado === 'confirmada';
+                    const esConfirmada = reserva.estado === 'confirmada' || reserva.estado === 'completada';
                     const esPendiente = reserva.estado === 'pendiente_pago';
                     const esBloqueo = reserva.estado === 'bloqueada';
+                    const tieneAlerta = reserva.notas?.includes('ALERTA FRAUDE');
 
                     return (
                       <td
                         key={cancha.id}
                         onClick={() => onSeleccionarTurno(cancha, slot.inicio, slot.fin, reserva)}
-                        className="p-2 border-r border-slate-700 last:border-r-0 cursor-pointer"
+                        className="p-1.5 border-r border-slate-800/80 last:border-r-0 cursor-pointer"
                       >
                         <div
-                          className={`p-2.5 rounded-lg border text-xs transition shadow-sm ${
+                          className={`p-2.5 rounded-xl border text-xs transition duration-200 relative overflow-hidden group shadow-md ${
                             esConfirmada
-                              ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200 hover:bg-emerald-900/60'
+                              ? 'bg-gradient-to-r from-emerald-950/70 to-emerald-900/50 border-emerald-500/40 text-emerald-100 hover:border-emerald-400 hover:shadow-emerald-500/20'
                               : esPendiente
-                              ? 'bg-amber-950/60 border-amber-500/50 text-amber-200 hover:bg-amber-900/60'
-                              : 'bg-slate-700/60 border-slate-600 text-slate-300'
+                              ? tieneAlerta
+                                ? 'bg-gradient-to-r from-rose-950/70 to-rose-900/50 border-rose-500/50 text-rose-100 hover:border-rose-400'
+                                : 'bg-gradient-to-r from-amber-950/70 to-amber-900/50 border-amber-500/40 text-amber-100 hover:border-amber-400 hover:shadow-amber-500/20'
+                              : 'diagonal-stripes border-slate-700/80 text-slate-300'
                           }`}
                         >
-                          <div className="flex items-center justify-between font-bold">
-                            <span className="flex items-center gap-1.5">
+                          <div className="flex items-center justify-between font-bold mb-1">
+                            <span className="flex items-center gap-1.5 text-[11px]">
                               {esConfirmada && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
-                              {esPendiente && <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />}
+                              {esPendiente && (
+                                <Clock className={`w-3.5 h-3.5 ${tieneAlerta ? 'text-rose-400' : 'text-amber-400 animate-pulse'}`} />
+                              )}
                               {esBloqueo && <Ban className="w-3.5 h-3.5 text-slate-400" />}
-                              {esConfirmada ? 'CONFIRMADA' : esPendiente ? 'EN ESPERA ANTICIPO' : 'BLOQUEADA'}
+                              
+                              <span className={tieneAlerta ? 'text-rose-300' : ''}>
+                                {esConfirmada
+                                  ? 'CONFIRMADA'
+                                  : esPendiente
+                                  ? tieneAlerta
+                                    ? 'ALERTA IA (REVISAR)'
+                                    : 'ANTICIPO PENDIENTE'
+                                  : 'BLOQUEADA'}
+                              </span>
                             </span>
-                            <span className="font-mono text-[11px] text-slate-300">
+                            <span className="font-mono text-[11px] font-bold text-white bg-slate-900/60 px-2 py-0.5 rounded-md border border-white/10">
                               ${(reserva.valor_total / 1000).toFixed(0)}k
                             </span>
                           </div>
 
-                          <div className="mt-1.5 space-y-0.5 text-[11px] text-slate-300">
-                            <p className="flex items-center gap-1">
-                              <User className="w-3 h-3 text-slate-400" />
-                              <span className="font-medium text-white">{reserva.clientes?.nombre || 'Reserva Directa'}</span>
+                          <div className="space-y-0.5 text-[11px]">
+                            <p className="flex items-center gap-1 font-semibold text-white truncate">
+                              <User className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span className="truncate">{reserva.clientes?.nombre || 'Reserva Directa'}</span>
                             </p>
                             {reserva.clientes?.telefono_wa && (
-                              <p className="flex items-center gap-1 text-slate-400">
-                                <Phone className="w-3 h-3" />
+                              <p className="flex items-center gap-1 text-slate-300 text-[10px] font-mono">
+                                <Phone className="w-3 h-3 text-emerald-400 shrink-0" />
                                 <span>{reserva.clientes.telefono_wa}</span>
                               </p>
                             )}
@@ -157,11 +240,11 @@ export const CalendarView: React.FC<Props> = ({
                     <td
                       key={cancha.id}
                       onClick={() => onSeleccionarTurno(cancha, slot.inicio, slot.fin)}
-                      className="p-2 border-r border-slate-700 last:border-r-0 cursor-pointer group"
+                      className="p-1.5 border-r border-slate-800/80 last:border-r-0 cursor-pointer group"
                     >
-                      <div className="p-2.5 rounded-lg border border-dashed border-slate-700/80 group-hover:border-emerald-500/50 group-hover:bg-emerald-500/5 transition text-center">
-                        <span className="text-xs text-slate-500 group-hover:text-emerald-400 font-medium">
-                          + Libre (Apartar)
+                      <div className="h-full min-h-[58px] rounded-xl border border-dashed border-slate-800/80 group-hover:border-emerald-500/50 group-hover:bg-emerald-500/5 transition flex items-center justify-center">
+                        <span className="text-xs text-slate-600 group-hover:text-emerald-400 font-medium transition flex items-center gap-1">
+                          + Libre
                         </span>
                       </div>
                     </td>

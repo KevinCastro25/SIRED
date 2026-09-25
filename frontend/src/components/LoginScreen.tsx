@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PerfilUsuario, Complejo } from '../types.ts';
-import { Trophy, ShieldCheck, User, Lock, ArrowRight } from 'lucide-react';
+import { BrandLogo } from './BrandLogo.tsx';
+import { ShieldCheck, User, Lock, ArrowRight } from 'lucide-react';
 
 interface Props {
   complejos: Complejo[];
@@ -76,19 +77,11 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-emerald-600/10 blur-[130px] rounded-full pointer-events-none" />
 
       <div className="w-full max-w-md z-10 space-y-6">
-        {/* Cabecera del Logo */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 items-center justify-center shadow-xl shadow-emerald-500/25 mb-1">
-            <Trophy className="w-7 h-7 text-white" />
-          </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight flex items-center justify-center gap-2">
-            SIRED
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              SaaS v2.0
-            </span>
-          </h1>
-          <p className="text-xs text-slate-400">
-            Plataforma de Gestión de Reservas & WhatsApp Oficial Multi-empresa
+        {/* Cabecera del Logo Vectorial de Marca */}
+        <div className="flex flex-col items-center justify-center text-center space-y-2">
+          <BrandLogo size="lg" className="justify-center" />
+          <p className="text-xs text-slate-400 max-w-xs mt-1">
+            Plataforma Centralizada de Gestión de Escenarios Deportivos & Bot Oficial de WhatsApp
           </p>
         </div>
 
