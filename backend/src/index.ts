@@ -77,11 +77,27 @@ app.post('/webhook', async (req: Request, res: Response) => {
         const complejo = await BookingService.getComplejoByPhone(phoneId, displayPhone);
 
         const telefonoCliente = messageObj.from;
-        const texto = messageObj.text?.body || '';
+        let texto = messageObj.text?.body || '';
         const nombrePush = contactObj?.profile?.name;
 
-        // 2. Procesar con las canchas, tarifas y Nequi de ESE complejo
-        const respuestaBot = await WhatsAppFlow.procesarMensaje(telefonoCliente, texto, nombrePush, complejo);
+        let mediaId: string | undefined;
+        let mediaType: string | undefined;
+
+        if (messageObj.type === 'image') {
+          mediaId = messageObj.image?.id;
+          mediaType = messageObj.image?.mime_type;
+          texto = messageObj.image?.caption || 'comprobante_imagen';
+        }
+
+        // 2. Procesar con las canchas, tarifas, Nequi y comprobantes de ESE complejo
+        const respuestaBot = await WhatsAppFlow.procesarMensaje(
+          telefonoCliente,
+          texto,
+          nombrePush,
+          complejo,
+          mediaId,
+          mediaType
+        );
 
         // 3. Responder al cliente usando el token y número de ese complejo
         await enviarMensajeWhatsApp(telefonoCliente, respuestaBot, complejo.whatsapp_token, phoneId);
@@ -243,6 +259,149 @@ app.patch('/api/reservas/:id/estado', async (req: Request, res: Response) => {
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
+});
+
+// ==============================================================================
+// OPCIÓN A: APROBACIÓN ASISTIDA DESDE EL VISOR WEB (CON NOTIFICACIÓN WHATSAPP)
+// ==============================================================================
+
+// 1. Aprobar Anticipo manualmente desde el Visor Web
+app.patch('/api/reservas/:id/aprobar-anticipo', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { notas_admin } = req.body;
+
+  try {
+    const { data: reserva, error: errRes } = await supabase
+      .from('reservas')
+      .select('*, canchas!inner(*, complejos!inner(*)), clientes(*)')
+      .eq('id', id)
+      .single();
+
+    if (errRes || !reserva) {
+      return res.status(404).json({ error: 'Reserva no encontrada' });
+    }
+
+    const { data: reservaActualizada, error: errUpd } = await supabase
+      .from('reservas')
+      .update({
+        estado: 'confirmada',
+        notas: notas_admin || 'Anticipo aprobado manualmente por administrador en Visor Web',
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (errUpd) throw errUpd;
+
+    await supabase.from('pagos_anticipos').insert({
+      reserva_id: id,
+      metodo: 'nequi',
+      monto: reserva.valor_anticipo_requerido,
+      estado: 'aprobado',
+      revisado_por: 'ADMIN_VISOR',
+      notas_admin: notas_admin || 'Aprobado desde Visor Web',
+    });
+
+    const cliente = reserva.clientes as any;
+    const cancha = reserva.canchas as any;
+    const complejo = cancha?.complejos as any;
+
+    if (cliente?.telefono_wa) {
+      const fechaFmt = new Date(reserva.fecha_inicio).toLocaleDateString('es-CO', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'UTC',
+      });
+      const horaInicio = new Date(reserva.fecha_inicio).toLocaleTimeString('es-CO', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC',
+      });
+      const horaFin = new Date(reserva.fecha_fin).toLocaleTimeString('es-CO', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC',
+      });
+
+      const saldoPendiente = (Number(reserva.valor_total) - Number(reserva.valor_anticipo_requerido)).toLocaleString('es-CO');
+
+      const mensajeConfirmacion =
+        `🎉 *¡ANTICIPO APROBADO CON ÉXITO!*\n\n` +
+        `Hola *${cliente.nombre || 'Jugador'}*, tu comprobante de pago ha sido verificado y aprobado por la administración de *${complejo?.nombre || 'el club'}*.\n\n` +
+        `🏟️ Cancha: *${cancha.nombre}*\n` +
+        `📅 Fecha: *${fechaFmt}*\n` +
+        `⏰ Horario: *${horaInicio} a ${horaFin}*\n` +
+        `💵 Saldo a pagar en cancha: *$${saldoPendiente}*\n\n` +
+        `✅ Tu reserva está 100% CONFIRMADA. Te enviaremos un recordatorio 2 horas antes de tu partido. ¡Nos vemos en la cancha! ⚽🎾`;
+
+      await enviarMensajeWhatsApp(
+        cliente.telefono_wa,
+        mensajeConfirmacion,
+        complejo?.whatsapp_token,
+        complejo?.whatsapp_phone_number_id
+      );
+    }
+
+    res.json({ success: true, reserva: reservaActualizada });
+  } catch (error: any) {
+    console.error('Error aprobando anticipo:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. Rechazar Comprobante de Anticipo desde el Visor Web
+app.patch('/api/reservas/:id/rechazar-anticipo', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { motivo } = req.body;
+
+  try {
+    const { data: reserva, error: errRes } = await supabase
+      .from('reservas')
+      .select('*, canchas!inner(*, complejos!inner(*)), clientes(*)')
+      .eq('id', id)
+      .single();
+
+    if (errRes || !reserva) {
+      return res.status(404).json({ error: 'Reserva no encontrada' });
+    }
+
+    const { data: reservaActualizada, error: errUpd } = await supabase
+      .from('reservas')
+      .update({
+        estado: 'cancelada',
+        notas: `Rechazado por admin: ${motivo || 'Comprobante no válido o pago no recibido'}`,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (errUpd) throw errUpd;
+
+    const cliente = reserva.clientes as any;
+    const cancha = reserva.canchas as any;
+    const complejo = cancha?.complejos as any;
+
+    if (cliente?.telefono_wa) {
+      const mensajeRechazo =
+        `❌ *Comprobante no aprobado:*\n\n` +
+        `Hola *${cliente.nombre || 'Jugador'}*, la administración de *${complejo?.nombre || 'el club'}* no pudo validar tu comprobante de pago (${motivo || 'pago no recibido en la cuenta bancaria'}).\n\n` +
+        `El turno en *${cancha.nombre}* ha sido liberado. Si consideras que se trata de un error, por favor comunícate directamente con la recepción del club.`;
+
+      await enviarMensajeWhatsApp(
+        cliente.telefono_wa,
+        mensajeRechazo,
+        complejo?.whatsapp_token,
+        complejo?.whatsapp_phone_number_id
+      );
+    }
+
+    res.json({ success: true, reserva: reservaActualizada });
+  } catch (error: any) {
+    console.error('Error rechazando anticipo:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Métricas y Resumen Financiero filtradas por complejo
