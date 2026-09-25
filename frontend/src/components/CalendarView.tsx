@@ -79,9 +79,9 @@ export const CalendarView: React.FC<Props> = ({
   };
 
   return (
-    <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-white/[0.08]">
+    <div className="bg-[#0f172a] rounded-2xl overflow-hidden shadow-sm flex flex-col border border-slate-800">
       {/* Barra de Control de Fecha y Navegación Rápida */}
-      <div className="p-4 bg-slate-900/80 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
+      <div className="p-4 bg-[#0f172a] border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-slate-800/90 rounded-xl p-1 border border-slate-700/80 shadow-inner">
             <button
@@ -95,7 +95,7 @@ export const CalendarView: React.FC<Props> = ({
               onClick={() => onCambiarFecha(new Date().toISOString().split('T')[0])}
               className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                 esHoy
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                  ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
               }`}
             >
@@ -132,14 +132,14 @@ export const CalendarView: React.FC<Props> = ({
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           <thead>
-            <tr className="bg-slate-900/90 border-b border-slate-800 text-xs uppercase tracking-wider text-slate-400">
-              <th className="p-3.5 w-24 text-center font-bold border-r border-slate-800/80 bg-slate-950/60">
+            <tr className="bg-slate-900 border-b border-slate-800 text-xs uppercase tracking-wider text-slate-400">
+              <th className="p-3.5 w-24 text-center font-bold border-r border-slate-800 bg-slate-950/60">
                 Horario
               </th>
               {canchas.map((c) => {
                 const sportStyle = getDeporteColor(c.deporte);
                 return (
-                  <th key={c.id} className="p-3.5 font-semibold border-r border-slate-800/80 last:border-r-0 min-w-[260px]">
+                  <th key={c.id} className="p-3.5 font-semibold border-r border-slate-800 last:border-r-0 min-w-[260px]">
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <span className="text-white text-sm font-bold block">{c.nombre}</span>
@@ -156,11 +156,11 @@ export const CalendarView: React.FC<Props> = ({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60">
+          <tbody className="divide-y divide-slate-800">
             {horas.map((slot) => (
-              <tr key={slot.inicio} className="hover:bg-slate-800/20 transition-colors">
+              <tr key={slot.inicio} className="hover:bg-slate-800/30 transition-colors">
                 {/* Eje de Horas */}
-                <td className="p-3 text-center border-r border-slate-800/80 text-xs font-mono font-bold text-slate-400 bg-slate-950/40 select-none">
+                <td className="p-3 text-center border-r border-slate-800 text-xs font-mono font-bold text-slate-400 bg-slate-950/40 select-none">
                   {slot.inicio}
                 </td>
 
@@ -183,24 +183,24 @@ export const CalendarView: React.FC<Props> = ({
                       <td
                         key={cancha.id}
                         onClick={() => onSeleccionarTurno(cancha, slot.inicio, slot.fin, reserva)}
-                        className="p-1.5 border-r border-slate-800/80 last:border-r-0 cursor-pointer"
+                        className="p-1.5 border-r border-slate-800 last:border-r-0 cursor-pointer"
                       >
                         <div
-                          className={`p-2.5 rounded-xl border text-xs transition duration-200 relative overflow-hidden group shadow-md ${
+                          className={`p-2.5 rounded-xl border text-xs transition duration-150 relative overflow-hidden group shadow-sm ${
                             esConfirmada
-                              ? 'bg-gradient-to-r from-emerald-950/70 to-emerald-900/50 border-emerald-500/40 text-emerald-100 hover:border-emerald-400 hover:shadow-emerald-500/20'
+                              ? 'bg-[#10241b] border-emerald-500/50 text-emerald-100 hover:border-emerald-400'
                               : esPendiente
                               ? tieneAlerta
-                                ? 'bg-gradient-to-r from-rose-950/70 to-rose-900/50 border-rose-500/50 text-rose-100 hover:border-rose-400'
-                                : 'bg-gradient-to-r from-amber-950/70 to-amber-900/50 border-amber-500/40 text-amber-100 hover:border-amber-400 hover:shadow-amber-500/20'
-                              : 'diagonal-stripes border-slate-700/80 text-slate-300'
+                                ? 'bg-[#2a1215] border-rose-500/60 text-rose-100 hover:border-rose-400'
+                                : 'bg-[#281d0f] border-amber-500/50 text-amber-100 hover:border-amber-400'
+                              : 'diagonal-stripes border-slate-700 text-slate-300'
                           }`}
                         >
                           <div className="flex items-center justify-between font-bold mb-1">
                             <span className="flex items-center gap-1.5 text-[11px]">
                               {esConfirmada && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
                               {esPendiente && (
-                                <Clock className={`w-3.5 h-3.5 ${tieneAlerta ? 'text-rose-400' : 'text-amber-400 animate-pulse'}`} />
+                                <Clock className={`w-3.5 h-3.5 ${tieneAlerta ? 'text-rose-400' : 'text-amber-400'}`} />
                               )}
                               {esBloqueo && <Ban className="w-3.5 h-3.5 text-slate-400" />}
                               

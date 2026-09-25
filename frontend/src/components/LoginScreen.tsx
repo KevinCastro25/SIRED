@@ -72,10 +72,7 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans">
-      {/* Fondo con brillo ambiental */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-emerald-600/10 blur-[130px] rounded-full pointer-events-none" />
-
+    <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col justify-center items-center p-6 relative overflow-hidden font-sans">
       <div className="w-full max-w-md z-10 space-y-6">
         {/* Cabecera del Logo Vectorial de Marca */}
         <div className="flex flex-col items-center justify-center text-center space-y-2">
@@ -86,7 +83,7 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
         </div>
 
         {/* Tarjeta Principal de Inicio de Sesión */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur-xl space-y-5">
+        <div className="bg-[#0f172a] border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
           <div>
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
               <Lock className="w-4 h-4 text-emerald-400" /> Control de Acceso por Roles

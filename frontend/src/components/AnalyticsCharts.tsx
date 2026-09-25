@@ -159,20 +159,20 @@ export const AnalyticsCharts: React.FC<Props> = ({ canchas, reservas, metricas, 
             {ocupacionPorHora.map((f, i) => (
               <div key={i} className="flex-1 flex flex-col items-center h-full justify-end group relative cursor-pointer">
                 {/* Tooltip flotante al pasar el mouse */}
-                <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition duration-200 pointer-events-none z-20 bg-slate-900 border border-slate-700 text-white text-[10px] py-1 px-2 rounded-lg shadow-xl whitespace-nowrap">
+                <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition duration-150 pointer-events-none z-20 bg-slate-900 border border-slate-700 text-white text-[10px] py-1 px-2 rounded shadow-lg whitespace-nowrap">
                   <strong className="block text-emerald-400">{f.hora}</strong>
                   {f.reservas} {f.reservas === 1 ? 'partido' : 'partidos'}
                 </div>
 
-                {/* Barra dinámica con gradiente */}
+                {/* Barra dinámica nítida */}
                 <div
                   style={{ height: `${f.porcentaje}%` }}
-                  className={`w-full rounded-t-md transition-all duration-500 relative ${
+                  className={`w-full rounded-t-sm transition-all duration-300 relative ${
                     f.esPico
-                      ? 'bg-gradient-to-t from-amber-600/80 via-amber-500 to-amber-400 group-hover:brightness-125 shadow-lg shadow-amber-500/20'
+                      ? 'bg-amber-500 hover:bg-amber-400'
                       : f.reservas > 0
-                      ? 'bg-gradient-to-t from-emerald-600/80 via-emerald-500 to-teal-400 group-hover:brightness-125 shadow-lg shadow-emerald-500/20'
-                      : 'bg-slate-800/60 group-hover:bg-slate-700/80'
+                      ? 'bg-emerald-500 hover:bg-emerald-400'
+                      : 'bg-slate-800/80 hover:bg-slate-700'
                   }`}
                 />
               </div>

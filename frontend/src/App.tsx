@@ -174,11 +174,8 @@ export function App() {
   const esSuperAdmin = usuarioActual.rol === 'superadmin';
 
   return (
-    <div className="min-h-screen bg-[#070a11] text-slate-100 flex flex-col font-sans relative overflow-x-hidden">
-      {/* Resplandor ambiental de estadio en la cabecera */}
-      <div className="stadium-glow absolute top-0 left-0 right-0 h-96 pointer-events-none" />
-
-      <header className="glass-panel sticky top-0 z-40 px-6 py-3 border-b border-white/[0.08]">
+    <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col font-sans relative overflow-x-hidden">
+      <header className="bg-[#0f172a] sticky top-0 z-40 px-6 py-3 border-b border-slate-800 shadow-sm">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <BrandLogo size="md" />
@@ -273,11 +270,9 @@ export function App() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-6">
         {/* Banner de información de la empresa activa */}
-        <div className="glass-panel rounded-2xl p-4.5 mb-6 flex flex-wrap items-center justify-between gap-4 border border-white/[0.08] relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-20 bg-emerald-500/10 blur-3xl pointer-events-none" />
-
+        <div className="bg-[#0f172a] rounded-2xl p-4.5 mb-6 flex flex-wrap items-center justify-between gap-4 border border-slate-800 shadow-sm relative overflow-hidden">
           <div className="flex items-center gap-3.5 z-10">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-600/30 to-teal-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shadow-inner">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
