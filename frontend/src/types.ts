@@ -58,3 +58,14 @@ export interface Metricas {
   ingresos_estimados: number;
   anticipos_recaudados: number;
 }
+
+export type RolUsuario = 'superadmin' | 'admin_complejo' | 'recepcion';
+
+export interface PerfilUsuario {
+  id: string;
+  email: string;
+  nombre: string;
+  rol: RolUsuario;
+  complejo_id?: string;
+  complejos?: Complejo;
+}

@@ -3,9 +3,10 @@ import { CalendarView } from './components/CalendarView.tsx';
 import { MetricCards } from './components/MetricCards.tsx';
 import { NewBookingModal } from './components/NewBookingModal.tsx';
 import { NewComplejoModal } from './components/NewComplejoModal.tsx';
-import { Cancha, Reserva, Metricas, Complejo } from './types.ts';
+import { LoginScreen } from './components/LoginScreen.tsx';
+import { Cancha, Reserva, Metricas, Complejo, PerfilUsuario } from './types.ts';
 import { supabase } from './config/supabase.ts';
-import { RefreshCw, Trophy, BellRing, Building2, PlusCircle, Phone } from 'lucide-react';
+import { RefreshCw, Trophy, BellRing, Building2, PlusCircle, Phone, LogOut } from 'lucide-react';
 
 export function App() {
   const hoyIso = new Date().toISOString().split('T')[0];
@@ -19,6 +20,16 @@ export function App() {
     reservas_confirmadas: 0,
     ingresos_estimados: 0,
     anticipos_recaudados: 0,
+  });
+
+  // Estado de Autenticación y Control de Roles
+  const [usuarioActual, setUsuarioActual] = useState<PerfilUsuario | null>(() => {
+    try {
+      const guardado = localStorage.getItem('sired_usuario');
+      return guardado ? JSON.parse(guardado) : null;
+    } catch {
+      return null;
+    }
   });
 
   const [modalTurnoAbierto, setModalTurnoAbierto] = useState(false);
@@ -37,7 +48,12 @@ export function App() {
         const data: Complejo[] = await res.json();
         setComplejos(data || []);
         if (data.length > 0 && !complejoActualId) {
-          setComplejoActualId(data[0].id);
+          // Si el usuario es de un complejo específico, forzar su empresa
+          if (usuarioActual && usuarioActual.rol !== 'superadmin' && usuarioActual.complejo_id) {
+            setComplejoActualId(usuarioActual.complejo_id);
+          } else {
+            setComplejoActualId(data[0].id);
+          }
         }
       }
     } catch (err) {
@@ -96,6 +112,13 @@ export function App() {
     }
   }, [complejoActualId, fechaSeleccionada]);
 
+  // Si cambia el usuario actual y tiene un complejo asignado, fijar ese complejo
+  useEffect(() => {
+    if (usuarioActual && usuarioActual.rol !== 'superadmin' && usuarioActual.complejo_id) {
+      setComplejoActualId(usuarioActual.complejo_id);
+    }
+  }, [usuarioActual]);
+
   // Suscripción Realtime en Supabase
   useEffect(() => {
     const canal = supabase
@@ -127,7 +150,26 @@ export function App() {
     setModalTurnoAbierto(true);
   };
 
+  const handleLogin = (perfil: PerfilUsuario) => {
+    setUsuarioActual(perfil);
+    localStorage.setItem('sired_usuario', JSON.stringify(perfil));
+    if (perfil.rol !== 'superadmin' && perfil.complejo_id) {
+      setComplejoActualId(perfil.complejo_id);
+    }
+  };
+
+  const handleLogout = () => {
+    setUsuarioActual(null);
+    localStorage.removeItem('sired_usuario');
+  };
+
+  // Si no hay sesión iniciada, mostrar pantalla de Login
+  if (!usuarioActual) {
+    return <LoginScreen complejos={complejos} onLogin={handleLogin} />;
+  }
+
   const complejoActivo = complejos.find((c) => c.id === complejoActualId) || complejos[0];
+  const esSuperAdmin = usuarioActual.rol === 'superadmin';
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -140,8 +182,12 @@ export function App() {
             <div>
               <h1 className="text-base font-bold text-white flex items-center gap-2">
                 SIRED • Visor de Reservas
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Multi-empresa
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                  esSuperAdmin
+                    ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                    : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                }`}>
+                  {esSuperAdmin ? '👑 SuperAdmin' : '🏢 Club Autorizado'}
                 </span>
               </h1>
               <p className="text-xs text-slate-400 flex items-center gap-1.5">
@@ -151,39 +197,55 @@ export function App() {
             </div>
           </div>
 
-          {/* Selector de Empresa Multi-tenant */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center bg-slate-800/90 border border-slate-700 rounded-xl px-3 py-1.5 shadow-sm">
-              <Building2 className="w-4 h-4 text-emerald-400 mr-2 shrink-0" />
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Empresa Activa</span>
-                <select
-                  value={complejoActualId}
-                  onChange={(e) => setComplejoActualId(e.target.value)}
-                  className="bg-transparent text-xs font-semibold text-white outline-none cursor-pointer pr-2"
-                >
-                  {complejos.map((c) => (
-                    <option key={c.id} value={c.id} className="bg-slate-900 text-white">
-                      {c.nombre} {c.ciudad ? `(${c.ciudad})` : ''}
-                    </option>
-                  ))}
-                  {complejos.length === 0 && (
-                    <option value="" className="bg-slate-900 text-slate-400">
-                      Cargando empresas...
-                    </option>
-                  )}
-                </select>
+            {/* Si es SuperAdmin: Selector de Empresa Activa */}
+            {esSuperAdmin ? (
+              <div className="flex items-center bg-slate-800/90 border border-slate-700 rounded-xl px-3 py-1.5 shadow-sm">
+                <Building2 className="w-4 h-4 text-amber-400 mr-2 shrink-0" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Empresa Activa</span>
+                  <select
+                    value={complejoActualId}
+                    onChange={(e) => setComplejoActualId(e.target.value)}
+                    className="bg-transparent text-xs font-semibold text-white outline-none cursor-pointer pr-2"
+                  >
+                    {complejos.map((c) => (
+                      <option key={c.id} value={c.id} className="bg-slate-900 text-white">
+                        {c.nombre} {c.ciudad ? `(${c.ciudad})` : ''}
+                      </option>
+                    ))}
+                    {complejos.length === 0 && (
+                      <option value="" className="bg-slate-900 text-slate-400">
+                        Cargando empresas...
+                      </option>
+                    )}
+                  </select>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Si es Administrador de Club: Bloqueado a su empresa exclusiva */
+              <div className="flex items-center bg-slate-800/90 border border-emerald-500/30 rounded-xl px-3.5 py-1.5 shadow-sm">
+                <Building2 className="w-4 h-4 text-emerald-400 mr-2 shrink-0" />
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Empresa</span>
+                  <span className="text-xs font-bold text-white">
+                    {complejoActivo?.nombre || 'Mi Complejo'}
+                  </span>
+                </div>
+              </div>
+            )}
 
-            <button
-              onClick={() => setModalComplejoAbierto(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 transition"
-              title="Registrar una nueva empresa en el sistema"
-            >
-              <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">Nueva Empresa</span>
-            </button>
+            {/* Botón "+ Nueva Empresa" visible ÚNICAMENTE para SuperAdmin */}
+            {esSuperAdmin && (
+              <button
+                onClick={() => setModalComplejoAbierto(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 transition"
+                title="Registrar una nueva empresa en el sistema (Solo SuperAdmin)"
+              >
+                <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline">Nueva Empresa</span>
+              </button>
+            )}
 
             <button
               onClick={() => cargarDatos()}
@@ -193,6 +255,23 @@ export function App() {
             >
               <RefreshCw className={`w-4 h-4 ${actualizando ? 'animate-spin text-emerald-400' : ''}`} />
             </button>
+
+            {/* Perfil del usuario autenticado & Cerrar sesión */}
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
+              <div className="flex flex-col text-right hidden sm:flex">
+                <span className="text-xs font-bold text-white">{usuarioActual.nombre}</span>
+                <span className={`text-[10px] font-semibold ${esSuperAdmin ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {esSuperAdmin ? 'SuperAdmin' : 'Administrador'}
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Cerrar Sesión"
+                className="p-2 bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-xl border border-slate-700 hover:border-rose-500/30 transition"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
