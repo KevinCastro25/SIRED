@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import { Cancha, Reserva, Metricas } from '../types.ts';
-import { BarChart3, TrendingUp, Clock, Flame, Zap, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import {
+  IconChartBar,
+  IconTrendingUp,
+  IconClock,
+  IconFlame,
+  IconBolt,
+  IconShieldCheck,
+  IconCircleCheck,
+} from '@tabler/icons-react';
 
 interface Props {
   canchas: Cancha[];
@@ -84,7 +92,7 @@ export const AnalyticsCharts: React.FC<Props> = ({ canchas, reservas, metricas, 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
-            <BarChart3 className="w-4 h-4" />
+            <IconChartBar className="w-4 h-4" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -144,12 +152,12 @@ export const AnalyticsCharts: React.FC<Props> = ({ canchas, reservas, metricas, 
                 Demanda Horaria
               </span>
               <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 mt-0.5">
-                <Clock className="w-3.5 h-3.5 text-emerald-600" /> Curva de Ocupación de Canchas
+                <IconClock className="w-3.5 h-3.5 text-emerald-600" /> Curva de Ocupación de Canchas
               </h4>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
-                <Flame className="w-3 h-3 text-amber-600" /> Horas Pico (6pm - 10pm)
+                <IconFlame className="w-3 h-3 text-amber-600" /> Horas Pico (6pm - 10pm)
               </span>
             </div>
           </div>
@@ -199,7 +207,7 @@ export const AnalyticsCharts: React.FC<Props> = ({ canchas, reservas, metricas, 
                 Rendimiento por Escenario
               </span>
               <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 mt-0.5">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-600" /> Canchas más Rentables
+                <IconTrendingUp className="w-3.5 h-3.5 text-emerald-600" /> Canchas más Rentables
               </h4>
             </div>
             <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -252,7 +260,7 @@ export const AnalyticsCharts: React.FC<Props> = ({ canchas, reservas, metricas, 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0 font-bold text-sm">
-            <CheckCircle2 className="w-5 h-5" />
+            <IconCircleCheck className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
@@ -269,7 +277,7 @@ export const AnalyticsCharts: React.FC<Props> = ({ canchas, reservas, metricas, 
 
         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-700 shrink-0 font-bold text-sm">
-            <Zap className="w-5 h-5" />
+            <IconBolt className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
@@ -286,7 +294,7 @@ export const AnalyticsCharts: React.FC<Props> = ({ canchas, reservas, metricas, 
 
         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0 font-bold text-sm">
-            <ShieldCheck className="w-5 h-5" />
+            <IconShieldCheck className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">

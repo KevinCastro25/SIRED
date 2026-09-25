@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { Send, Bot, RefreshCw, X, MessageSquare } from 'lucide-react';
+import {
+  IconSend,
+  IconRobot,
+  IconRefresh,
+  IconX,
+  IconMessageDots,
+} from '@tabler/icons-react';
+import { motion } from 'framer-motion';
 import { Complejo } from '../types.ts';
 
 interface Props {
@@ -104,7 +111,12 @@ export const BotSimulatorModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col">
+    <motion.div
+      initial={{ x: 420, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.22, ease: 'easeOut' }}
+      className="fixed inset-y-0 right-0 z-50 w-full sm:w-[420px] bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col"
+    >
       <div className="bg-emerald-800 p-4 flex items-center justify-between text-white">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center font-bold text-lg border border-emerald-400">
@@ -126,20 +138,20 @@ export const BotSimulatorModal: React.FC<Props> = ({
             title="Reiniciar conversación"
             className="p-2 hover:bg-emerald-700/80 rounded-lg text-emerald-200 hover:text-white transition"
           >
-            <RefreshCw className="w-4 h-4" />
+            <IconRefresh className="w-4 h-4" />
           </button>
           <button
             onClick={onClose}
             className="p-2 hover:bg-emerald-700/80 rounded-lg text-emerald-200 hover:text-white transition"
           >
-            <X className="w-5 h-5" />
+            <IconX className="w-5 h-5" />
           </button>
         </div>
       </div>
 
       <div className="bg-slate-800/80 px-4 py-2 text-[11px] text-slate-300 border-b border-slate-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <MessageSquare className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <IconMessageDots className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
           <span>Simulador multi-empresa Modelo A</span>
         </div>
         {complejoSeleccionado && (
@@ -176,7 +188,7 @@ export const BotSimulatorModal: React.FC<Props> = ({
 
         {cargando && (
           <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/60 p-2 rounded-lg max-w-[140px]">
-            <Bot className="w-4 h-4 animate-spin text-emerald-400" />
+            <IconRobot className="w-4 h-4 animate-spin text-emerald-400" />
             <span>Bot respondiendo...</span>
           </div>
         )}
@@ -202,10 +214,10 @@ export const BotSimulatorModal: React.FC<Props> = ({
             disabled={cargando || !inputTexto.trim()}
             className="p-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl transition"
           >
-            <Send className="w-4 h-4" />
+            <IconSend className="w-4 h-4" />
           </button>
         </form>
       </div>
-    </div>
+    </motion.div>
   );
 };

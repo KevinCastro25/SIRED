@@ -1,6 +1,16 @@
 import React from 'react';
 import { Cancha, Reserva } from '../types.ts';
-import { CheckCircle2, Clock, Ban, User, Phone, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
+import {
+  IconCheck,
+  IconClock,
+  IconBan,
+  IconUser,
+  IconPhone,
+  IconChevronLeft,
+  IconChevronRight,
+  IconCalendar,
+  IconSparkles,
+} from '@tabler/icons-react';
 
 interface Props {
   canchas: Cancha[];
@@ -89,7 +99,7 @@ export const CalendarView: React.FC<Props> = ({
               className="p-1.5 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition"
               title="Día anterior"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <IconChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={() => onCambiarFecha(new Date().toISOString().split('T')[0])}
@@ -99,19 +109,19 @@ export const CalendarView: React.FC<Props> = ({
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5" /> Hoy
+              <IconSparkles className="w-3.5 h-3.5" /> Hoy
             </button>
             <button
               onClick={() => moverDia(1)}
               className="p-1.5 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition"
               title="Día siguiente"
             >
-              <ChevronRight className="w-4 h-4" />
+              <IconChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           <div className="relative flex items-center">
-            <CalendarIcon className="w-4 h-4 text-slate-500 absolute left-3 pointer-events-none" />
+            <IconCalendar className="w-4 h-4 text-slate-500 absolute left-3 pointer-events-none" />
             <input
               type="date"
               value={fechaSeleccionada}
@@ -210,11 +220,11 @@ export const CalendarView: React.FC<Props> = ({
                         >
                           <div className="flex items-center justify-between font-bold mb-1">
                             <span className="flex items-center gap-1.5 text-[11px]">
-                              {esConfirmada && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
+                              {esConfirmada && <IconCheck className="w-4 h-4 text-emerald-600 stroke-[2.5]" />}
                               {esPendiente && (
-                                <Clock className={`w-3.5 h-3.5 ${tieneAlerta ? 'text-rose-600' : 'text-amber-600'}`} />
+                                <IconClock className={`w-4 h-4 ${tieneAlerta ? 'text-rose-600' : 'text-amber-600'} stroke-[2.5]`} />
                               )}
-                              {esBloqueo && <Ban className="w-3.5 h-3.5 text-slate-500" />}
+                              {esBloqueo && <IconBan className="w-4 h-4 text-slate-500 stroke-[2.5]" />}
                               
                               <span className={tieneAlerta ? 'text-rose-800 font-black' : esConfirmada ? 'text-emerald-900 font-bold' : 'text-amber-900 font-bold'}>
                                 {esConfirmada
@@ -233,12 +243,12 @@ export const CalendarView: React.FC<Props> = ({
 
                           <div className="space-y-0.5 text-[11px]">
                             <p className="flex items-center gap-1 font-semibold text-slate-900 truncate">
-                              <User className="w-3 h-3 text-slate-400 shrink-0" />
+                              <IconUser className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                               <span className="truncate">{reserva.clientes?.nombre || 'Reserva Directa'}</span>
                             </p>
                             {reserva.clientes?.telefono_wa && (
                               <p className="flex items-center gap-1 text-slate-600 text-[10px] font-mono">
-                                <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
+                                <IconPhone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                                 <span>{reserva.clientes.telefono_wa}</span>
                               </p>
                             )}

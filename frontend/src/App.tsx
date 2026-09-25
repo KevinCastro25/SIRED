@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarView } from './components/CalendarView.tsx';
 import { MetricCards } from './components/MetricCards.tsx';
 import { AnalyticsCharts } from './components/AnalyticsCharts.tsx';
@@ -8,7 +9,15 @@ import { LoginScreen } from './components/LoginScreen.tsx';
 import { Cancha, Reserva, Metricas, Complejo, PerfilUsuario } from './types.ts';
 import { supabase } from './config/supabase.ts';
 import { BrandLogo } from './components/BrandLogo.tsx';
-import { RefreshCw, Building2, PlusCircle, Phone, LogOut } from 'lucide-react';
+import {
+  IconCalendar,
+  IconChartBar,
+  IconBuilding,
+  IconPlus,
+  IconRefresh,
+  IconLogout,
+  IconPhone,
+} from '@tabler/icons-react';
 
 export function App() {
   const hoyIso = new Date().toISOString().split('T')[0];
@@ -189,7 +198,7 @@ export function App() {
             {/* Selector de Empresa para SuperAdmin o Badge de Club */}
             {esSuperAdmin ? (
               <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs">
-                <Building2 className="w-4 h-4 text-emerald-700 mr-2 shrink-0" />
+                <IconBuilding className="w-4 h-4 text-emerald-700 mr-2 shrink-0" />
                 <select
                   value={complejoActualId}
                   onChange={(e) => setComplejoActualId(e.target.value)}
@@ -207,35 +216,54 @@ export function App() {
               </div>
             ) : (
               <div className="flex items-center bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-3 py-1 text-xs font-semibold">
-                <Building2 className="w-3.5 h-3.5 text-emerald-700 mr-1.5 shrink-0" />
+                <IconBuilding className="w-3.5 h-3.5 text-emerald-700 mr-1.5 shrink-0" />
                 <span>{complejoActivo?.nombre || 'Mi Complejo'}</span>
               </div>
             )}
           </div>
 
-          {/* Navegación por Pestañas Central: Calendario vs Estadísticas */}
-          <nav className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+          {/* Navegación por Pestañas Central con Animación Fluida */}
+          <nav className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
               onClick={() => setPestanaActiva('calendario')}
-              className={`px-4 py-1.5 rounded-lg transition flex items-center gap-2 ${
+              className={`relative px-4 py-1.5 rounded-lg transition text-xs font-semibold ${
                 pestanaActiva === 'calendario'
-                  ? 'bg-white text-slate-900 shadow-sm font-bold'
+                  ? 'text-slate-900 font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span>📅</span>
-              <span>Turnos & Calendario</span>
+              {pestanaActiva === 'calendario' && (
+                <motion.div
+                  layoutId="activeTabPill"
+                  className="absolute inset-0 bg-white rounded-lg shadow-sm"
+                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                <IconCalendar className="w-4 h-4 text-emerald-600" />
+                <span>Turnos & Calendario</span>
+              </span>
             </button>
+
             <button
               onClick={() => setPestanaActiva('metricas')}
-              className={`px-4 py-1.5 rounded-lg transition flex items-center gap-2 ${
+              className={`relative px-4 py-1.5 rounded-lg transition text-xs font-semibold ${
                 pestanaActiva === 'metricas'
-                  ? 'bg-white text-slate-900 shadow-sm font-bold'
+                  ? 'text-slate-900 font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span>📊</span>
-              <span>Métricas & Caja</span>
+              {pestanaActiva === 'metricas' && (
+                <motion.div
+                  layoutId="activeTabPill"
+                  className="absolute inset-0 bg-white rounded-lg shadow-sm"
+                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                <IconChartBar className="w-4 h-4 text-emerald-600" />
+                <span>Métricas & Caja</span>
+              </span>
             </button>
           </nav>
 
@@ -247,7 +275,7 @@ export function App() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl border border-slate-200 transition"
                 title="Registrar una nueva empresa"
               >
-                <PlusCircle className="w-3.5 h-3.5 text-emerald-600" />
+                <IconPlus className="w-3.5 h-3.5 text-emerald-600" />
                 <span className="hidden md:inline">Nueva Empresa</span>
               </button>
             )}
@@ -258,7 +286,7 @@ export function App() {
               className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl border border-slate-200 transition"
               title="Refrescar datos"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${actualizando ? 'animate-spin text-emerald-600' : ''}`} />
+              <IconRefresh className={`w-3.5 h-3.5 ${actualizando ? 'animate-spin text-emerald-600' : ''}`} />
             </button>
 
             {/* Perfil & Logout */}
@@ -274,75 +302,87 @@ export function App() {
                 title="Cerrar Sesión"
                 className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-xl border border-slate-200 hover:border-rose-200 transition"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <IconLogout className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Contenido Principal Limpio */}
+      {/* Contenido Principal Limpio con Animación */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6">
-        {/* PESTAÑA 1: CALENDARIO DE CANCHAS (Limpieza total, sin saturación) */}
-        {pestanaActiva === 'calendario' && (
-          <div className="space-y-4">
-            {/* Barra informativa minimalista y limpia */}
-            <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-slate-900 text-sm">{complejoActivo?.nombre}</span>
-                {complejoActivo?.telefono_whatsapp && (
-                  <span className="text-slate-500 flex items-center gap-1 font-mono">
-                    <Phone className="w-3.5 h-3.5 text-emerald-600" /> {complejoActivo.telefono_whatsapp}
-                  </span>
-                )}
-                {complejoActivo?.nequi_numero && (
-                  <span className="text-slate-500 hidden sm:inline">
-                    • Nequi/Davi: <strong className="text-slate-800 font-mono">{complejoActivo.nequi_numero}</strong>
-                  </span>
-                )}
+        <AnimatePresence mode="wait">
+          {pestanaActiva === 'calendario' ? (
+            <motion.div
+              key="calendario"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-4"
+            >
+              {/* Barra informativa minimalista y limpia */}
+              <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-slate-900 text-sm">{complejoActivo?.nombre}</span>
+                  {complejoActivo?.telefono_whatsapp && (
+                    <span className="text-slate-500 flex items-center gap-1 font-mono">
+                      <IconPhone className="w-3.5 h-3.5 text-emerald-600" /> {complejoActivo.telefono_whatsapp}
+                    </span>
+                  )}
+                  {complejoActivo?.nequi_numero && (
+                    <span className="text-slate-500 hidden sm:inline">
+                      • Nequi/Davi: <strong className="text-slate-800 font-mono">{complejoActivo.nequi_numero}</strong>
+                    </span>
+                  )}
+                </div>
+                <div className="text-slate-500 font-mono">
+                  Horario: {complejoActivo?.hora_apertura?.slice(0, 5) || '06:00'} - {complejoActivo?.hora_cierre?.slice(0, 5) || '23:00'}
+                </div>
               </div>
-              <div className="text-slate-500 font-mono">
-                Horario: {complejoActivo?.hora_apertura?.slice(0, 5) || '06:00'} - {complejoActivo?.hora_cierre?.slice(0, 5) || '23:00'}
-              </div>
-            </div>
 
-            {canchas.length > 0 ? (
-              <CalendarView
+              {canchas.length > 0 ? (
+                <CalendarView
+                  canchas={canchas}
+                  reservas={reservas}
+                  fechaSeleccionada={fechaSeleccionada}
+                  onCambiarFecha={setFechaSeleccionada}
+                  onSeleccionarTurno={handleSeleccionarTurno}
+                />
+              ) : (
+                <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center space-y-3 shadow-sm">
+                  <p className="text-slate-600 text-sm">
+                    No hay canchas registradas para <strong className="text-slate-900">{complejoActivo?.nombre || 'esta empresa'}</strong>.
+                  </p>
+                  <button
+                    onClick={() => cargarDatos()}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition"
+                  >
+                    Reintentar Conexión
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="metricas"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-6"
+            >
+              <MetricCards metricas={metricas} />
+
+              <AnalyticsCharts
                 canchas={canchas}
                 reservas={reservas}
-                fechaSeleccionada={fechaSeleccionada}
-                onCambiarFecha={setFechaSeleccionada}
-                onSeleccionarTurno={handleSeleccionarTurno}
+                metricas={metricas}
+                nombreComplejo={complejoActivo?.nombre || 'Complejo Deportivo'}
               />
-            ) : (
-              <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center space-y-3 shadow-sm">
-                <p className="text-slate-600 text-sm">
-                  No hay canchas registradas para <strong className="text-slate-900">{complejoActivo?.nombre || 'esta empresa'}</strong>.
-                </p>
-                <button
-                  onClick={() => cargarDatos()}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition"
-                >
-                  Reintentar Conexión
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* PESTAÑA 2: MÉTRICAS Y ESTADÍSTICAS (Espacio dedicado para análisis) */}
-        {pestanaActiva === 'metricas' && (
-          <div className="space-y-6">
-            <MetricCards metricas={metricas} />
-
-            <AnalyticsCharts
-              canchas={canchas}
-              reservas={reservas}
-              metricas={metricas}
-              nombreComplejo={complejoActivo?.nombre || 'Complejo Deportivo'}
-            />
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       <NewBookingModal

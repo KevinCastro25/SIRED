@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { X, Building2, MapPin, Phone, CreditCard, Clock, Check } from 'lucide-react';
+import {
+  IconX,
+  IconBuilding,
+  IconMapPin,
+  IconPhone,
+  IconCreditCard,
+  IconClock,
+  IconCheck,
+} from '@tabler/icons-react';
+import { motion } from 'framer-motion';
 import { Complejo } from '../types.ts';
 
 interface Props {
@@ -78,12 +87,17 @@ export const NewComplejoModal: React.FC<Props> = ({ isOpen, onClose, onComplejoC
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-xl animate-in fade-in zoom-in-95">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+        className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl"
+      >
         <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl">
-              <Building2 className="w-5 h-5" />
+              <IconBuilding className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">Registrar Nueva Empresa / Complejo</h3>
@@ -91,7 +105,7 @@ export const NewComplejoModal: React.FC<Props> = ({ isOpen, onClose, onComplejoC
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-700 transition">
-            <X className="w-5 h-5" />
+            <IconX className="w-5 h-5" />
           </button>
         </div>
 
@@ -128,7 +142,7 @@ export const NewComplejoModal: React.FC<Props> = ({ isOpen, onClose, onComplejoC
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-slate-400" /> Ciudad
+                <IconMapPin className="w-3.5 h-3.5 text-slate-400" /> Ciudad
               </label>
               <input
                 type="text"
@@ -154,7 +168,7 @@ export const NewComplejoModal: React.FC<Props> = ({ isOpen, onClose, onComplejoC
 
           <div className="border-t border-slate-200 pt-3">
             <h4 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5 text-emerald-600" /> Canal Oficial de WhatsApp
+              <IconPhone className="w-3.5 h-3.5 text-emerald-600" /> Canal Oficial de WhatsApp
             </h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -183,7 +197,7 @@ export const NewComplejoModal: React.FC<Props> = ({ isOpen, onClose, onComplejoC
 
           <div className="border-t border-slate-200 pt-3">
             <h4 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
-              <CreditCard className="w-3.5 h-3.5 text-emerald-600" /> Cuentas para Anticipos
+              <IconCreditCard className="w-3.5 h-3.5 text-emerald-600" /> Cuentas para Anticipos
             </h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -221,7 +235,7 @@ export const NewComplejoModal: React.FC<Props> = ({ isOpen, onClose, onComplejoC
 
           <div className="border-t border-slate-200 pt-3">
             <h4 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-emerald-600" /> Horario de Funcionamiento
+              <IconClock className="w-3.5 h-3.5 text-emerald-600" /> Horario de Funcionamiento
             </h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -260,12 +274,12 @@ export const NewComplejoModal: React.FC<Props> = ({ isOpen, onClose, onComplejoC
               disabled={cargando}
               className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-xl text-xs font-semibold text-white flex items-center gap-2 shadow-sm transition disabled:opacity-50"
             >
-              <Check className="w-4 h-4" />
+              <IconCheck className="w-4 h-4" />
               {cargando ? 'Guardando...' : 'Crear Empresa'}
             </button>
           </div>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 };

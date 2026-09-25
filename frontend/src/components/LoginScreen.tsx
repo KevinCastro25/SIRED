@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { PerfilUsuario, Complejo } from '../types.ts';
 import { BrandLogo } from './BrandLogo.tsx';
-import { ShieldCheck, User, Lock, ArrowRight } from 'lucide-react';
+import {
+  IconLock,
+  IconMail,
+  IconArrowRight,
+  IconShieldCheck,
+  IconCrown,
+  IconBallFootball,
+  IconBallTennis,
+} from '@tabler/icons-react';
 
 interface Props {
   complejos: Complejo[];
@@ -46,7 +55,6 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
     setCargando(true);
     setError(null);
 
-    // Búsqueda del perfil correspondiente por email o asignación inteligente
     const perfilEncontrado = perfilesDemo.find(
       (p) => p.email.toLowerCase() === email.trim().toLowerCase()
     );
@@ -60,7 +68,6 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
       } else if (email.includes('padel')) {
         onLogin(perfilesDemo[2]);
       } else {
-        // Por defecto entra como SuperAdmin si es una cuenta nueva
         onLogin({
           id: 'usr-custom-' + Date.now(),
           email,
@@ -68,12 +75,17 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
           rol: 'superadmin',
         });
       }
-    }, 400);
+    }, 350);
   };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center items-center p-6 font-sans">
-      <div className="w-full max-w-md z-10 space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        className="w-full max-w-md z-10 space-y-6"
+      >
         {/* Cabecera del Logo */}
         <div className="flex flex-col items-center justify-center text-center space-y-2">
           <BrandLogo size="lg" theme="light" className="justify-center" />
@@ -86,7 +98,7 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
         <div className="bg-white border border-slate-200 rounded-2xl p-7 shadow-sm space-y-5">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Lock className="w-4 h-4 text-emerald-600" /> Iniciar Sesión
+              <IconLock className="w-4 h-4 text-emerald-600" /> Iniciar Sesión
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               Ingresa tus credenciales o elige un rol demo para explorar el panel.
@@ -99,12 +111,12 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
             </div>
           )}
 
-          {/* Formulario tradicional de email y password */}
+          {/* Formulario de email y password */}
           <form onSubmit={handleLoginManual} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Correo Electrónico</label>
               <div className="relative">
-                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <IconMail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   required
@@ -119,7 +131,7 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Contraseña</label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <IconLock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
                   required
@@ -137,7 +149,7 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
               className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50"
             >
               <span>{cargando ? 'Ingresando...' : 'Entrar al Panel'}</span>
-              <ArrowRight className="w-4 h-4" />
+              <IconArrowRight className="w-4 h-4" />
             </button>
           </form>
 
@@ -153,14 +165,16 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
           {/* Tarjetas de Acceso Rápido por Rol */}
           <div className="space-y-2">
             {/* 1. SuperAdmin */}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               type="button"
               onClick={() => onLogin(perfilesDemo[0])}
               className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-amber-50/60 border border-slate-200 hover:border-amber-300 transition group flex items-center justify-between"
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center font-bold text-xs">
-                  👑
+                  <IconCrown className="w-4 h-4 text-amber-700" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -172,22 +186,24 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    Control maestro de todas las empresas y creación de sedes.
+                    Control maestro de todas las empresas y sedes.
                   </p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition" />
-            </button>
+              <IconArrowRight className="w-4 h-4 text-slate-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition" />
+            </motion.button>
 
             {/* 2. Admin El Diamante */}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               type="button"
               onClick={() => onLogin(perfilesDemo[1])}
               className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 hover:border-emerald-300 transition group flex items-center justify-between"
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center font-bold text-xs">
-                  ⚽
+                  <IconBallFootball className="w-4 h-4 text-emerald-700" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -203,18 +219,20 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
                   </p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition" />
-            </button>
+              <IconArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition" />
+            </motion.button>
 
             {/* 3. Admin Pádel Club 127 */}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               type="button"
               onClick={() => onLogin(perfilesDemo[2])}
               className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-cyan-50/60 border border-slate-200 hover:border-cyan-300 transition group flex items-center justify-between"
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-cyan-100 text-cyan-700 border border-cyan-200 flex items-center justify-center font-bold text-xs">
-                  🎾
+                  <IconBallTennis className="w-4 h-4 text-cyan-700" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -230,17 +248,17 @@ export const LoginScreen: React.FC<Props> = ({ complejos, onLogin }) => {
                   </p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-cyan-600 group-hover:translate-x-0.5 transition" />
-            </button>
+              <IconArrowRight className="w-4 h-4 text-slate-400 group-hover:text-cyan-600 group-hover:translate-x-0.5 transition" />
+            </motion.button>
           </div>
         </div>
 
         {/* Pie de página con garantía de seguridad */}
         <div className="text-center text-xs text-slate-500 flex items-center justify-center gap-1.5">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <IconShieldCheck className="w-4 h-4 text-emerald-600" />
           <span>Aislamiento por Row Level Security (RLS) & PostgreSQL</span>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
