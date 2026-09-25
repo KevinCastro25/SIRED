@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { CalendarView } from './components/CalendarView.tsx';
 import { MetricCards } from './components/MetricCards.tsx';
-import { BotSimulatorModal } from './components/BotSimulatorModal.tsx';
 import { NewBookingModal } from './components/NewBookingModal.tsx';
 import { NewComplejoModal } from './components/NewComplejoModal.tsx';
 import { Cancha, Reserva, Metricas, Complejo } from './types.ts';
 import { supabase } from './config/supabase.ts';
-import { MessageSquare, RefreshCw, Trophy, BellRing, Building2, PlusCircle, Phone } from 'lucide-react';
+import { RefreshCw, Trophy, BellRing, Building2, PlusCircle, Phone } from 'lucide-react';
 
 export function App() {
   const hoyIso = new Date().toISOString().split('T')[0];
@@ -22,7 +21,6 @@ export function App() {
     anticipos_recaudados: 0,
   });
 
-  const [simuladorAbierto, setSimuladorAbierto] = useState(false);
   const [modalTurnoAbierto, setModalTurnoAbierto] = useState(false);
   const [modalComplejoAbierto, setModalComplejoAbierto] = useState(false);
   const [canchaSeleccionadaModal, setCanchaSeleccionadaModal] = useState<Cancha | undefined>();
@@ -195,14 +193,6 @@ export function App() {
             >
               <RefreshCw className={`w-4 h-4 ${actualizando ? 'animate-spin text-emerald-400' : ''}`} />
             </button>
-
-            <button
-              onClick={() => setSimuladorAbierto(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition transform active:scale-95"
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>Canal WhatsApp</span>
-            </button>
           </div>
         </div>
       </header>
@@ -262,13 +252,6 @@ export function App() {
           </div>
         )}
       </main>
-
-      <BotSimulatorModal
-        isOpen={simuladorAbierto}
-        onClose={() => setSimuladorAbierto(false)}
-        onReservaCreada={() => cargarDatos()}
-        complejoSeleccionado={complejoActivo}
-      />
 
       <NewBookingModal
         isOpen={modalTurnoAbierto}
