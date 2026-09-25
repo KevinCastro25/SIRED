@@ -9,10 +9,11 @@ ADD COLUMN IF NOT EXISTS whatsapp_phone_number_id VARCHAR(100),
 ADD COLUMN IF NOT EXISTS whatsapp_token TEXT,
 ADD COLUMN IF NOT EXISTS titular_cuenta VARCHAR(150) DEFAULT 'Administrador';
 
--- 2. Asignar slug por defecto al primer complejo de prueba
+-- 2. Asignar slug por defecto al primer complejo de prueba con las credenciales oficiales de Meta
 UPDATE complejos 
 SET slug = 'el-diamante', 
-    whatsapp_phone_number_id = '1234567890' 
+    whatsapp_phone_number_id = '1233193979887782',
+    telefono_whatsapp = '+15551739000'
 WHERE id = 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d';
 
 -- 3. Crear un segundo complejo deportivo de ejemplo para probar la separación de empresas
