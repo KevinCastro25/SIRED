@@ -179,28 +179,52 @@ export class WhatsAppFlow {
     session.paso = 'SELECCION_FECHA';
 
     const hoy = new Date();
-    const manana = new Date(hoy);
-    manana.setDate(hoy.getDate() + 1);
-    const pasado = new Date(hoy);
-    pasado.setDate(hoy.getDate() + 2);
+    const nombresDias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const nombresMeses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-    const fHoy = hoy.toISOString().split('T')[0];
-    const fManana = manana.toISOString().split('T')[0];
-    const fPasado = pasado.toISOString().split('T')[0];
+    const filasProximosDias: InteractiveRow[] = [];
 
-    const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const diaHoy = dias[hoy.getDay()];
-    const diaManana = dias[manana.getDay()];
-    const diaPasado = dias[pasado.getDay()];
+    // Generar opciones para los próximos 6 días
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(hoy);
+      d.setDate(hoy.getDate() + i);
+      const anio = d.getFullYear();
+      const mesStr = String(d.getMonth() + 1).padStart(2, '0');
+      const diaStr = String(d.getDate()).padStart(2, '0');
+      const fechaIso = `${anio}-${mesStr}-${diaStr}`;
+
+      const nombreDia = nombresDias[d.getDay()];
+      const nombreMes = nombresMeses[d.getMonth()];
+
+      let etiqueta = `${nombreDia} ${diaStr} ${nombreMes}`;
+      if (i === 0) etiqueta = `Hoy (${nombreDia})`;
+      else if (i === 1) etiqueta = `Mañana (${nombreDia})`;
+
+      filasProximosDias.push({
+        id: `fecha_${fechaIso}`,
+        title: etiqueta.slice(0, 24),
+        description: `Reservar para el ${fechaIso}`,
+      });
+    }
+
+    const filasPersonalizadas: InteractiveRow[] = [
+      {
+        id: 'fecha_personalizada',
+        title: '✏️ Escribir otra fecha',
+        description: 'Escribe cualquier fecha del año',
+      },
+    ];
+
+    const sections: InteractiveSection[] = [
+      { title: 'Fechas Próximas', rows: filasProximosDias },
+      { title: 'Cualquier Otra Fecha', rows: filasPersonalizadas },
+    ];
 
     const texto = `🏟️ Cancha elegida: *${session.canchaSeleccionada.nombre}*\n\n` +
-      `¿Para qué fecha deseas tu partido? Despliega el menú a continuación para seleccionar el día:`;
-
-    const rows: InteractiveRow[] = [
-      { id: 'fecha_hoy', title: `Hoy (${diaHoy})`, description: fHoy },
-      { id: 'fecha_manana', title: `Mañana (${diaManana})`, description: fManana },
-      { id: 'fecha_pasado', title: `Pasado (${diaPasado})`, description: fPasado },
-    ];
+      `¿Para qué fecha deseas tu partido?\n` +
+      `• Puedes desplegar el menú tocando *[Elegir Fecha]*.\n` +
+      `• O puedes **escribir directamente la fecha que quieras** en el chat:\n` +
+      `  👉 Ejemplos: *"18 de octubre"*, *"el próximo viernes"*, *"25/11"* o *"2026-10-15"*.`;
 
     return {
       texto,
@@ -208,39 +232,154 @@ export class WhatsAppFlow {
         type: 'list',
         header: 'Selección de Fecha',
         body: texto,
-        footer: 'O escribe una fecha AAAA-MM-DD',
+        footer: 'Elige del menú o escribe tu fecha',
         action: {
           button: 'Elegir Fecha',
-          sections: [
-            {
-              title: 'Próximos Días',
-              rows,
-            },
-          ],
+          sections,
         },
       },
     };
   }
 
-  private static async manejarSeleccionFecha(input: string, session: UserSession): Promise<BotResponse> {
+  private static interpretarFecha(input: string): string | null {
+    const limpio = input.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const hoy = new Date();
-    let fecha = '';
 
-    if (input === 'fecha_hoy' || input === '1' || input.includes('hoy')) {
-      fecha = hoy.toISOString().split('T')[0];
-    } else if (input === 'fecha_manana' || input === '2' || input.includes('mañana') || input.includes('manana')) {
+    // 1. Selección directa desde el menú interactivo (ej. fecha_2026-10-06)
+    if (limpio.startsWith('fecha_')) {
+      const f = limpio.replace('fecha_', '');
+      if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f;
+    }
+
+    // 2. Comandos rápidos
+    if (limpio === 'hoy' || limpio === '1') {
+      return hoy.toISOString().split('T')[0];
+    }
+    if (limpio === 'manana' || limpio === '2') {
       const m = new Date(hoy);
       m.setDate(hoy.getDate() + 1);
-      fecha = m.toISOString().split('T')[0];
-    } else if (input === 'fecha_pasado' || input === '3' || input.includes('pasado')) {
+      return m.toISOString().split('T')[0];
+    }
+    if (limpio === 'pasado manana' || limpio === '3') {
       const p = new Date(hoy);
       p.setDate(hoy.getDate() + 2);
-      fecha = p.toISOString().split('T')[0];
-    } else if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
-      fecha = input;
-    } else {
+      return p.toISOString().split('T')[0];
+    }
+
+    // 3. Formato AAAA-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(limpio)) {
+      return limpio;
+    }
+
+    // 4. Formato DD/MM o DD-MM o DD/MM/AAAA (ej. 15/10 o 15-10-2026)
+    const regexBarra = /^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{4}))?$/;
+    const matchBarra = limpio.match(regexBarra);
+    if (matchBarra) {
+      const dia = parseInt(matchBarra[1], 10);
+      const mes = parseInt(matchBarra[2], 10) - 1;
+      const anio = matchBarra[3] ? parseInt(matchBarra[3], 10) : hoy.getFullYear();
+      const d = new Date(anio, mes, dia);
+      if (!matchBarra[3] && d < hoy && (hoy.getTime() - d.getTime()) > 86400000) {
+        d.setFullYear(anio + 1);
+      }
+      const mesStr = String(d.getMonth() + 1).padStart(2, '0');
+      const diaStr = String(d.getDate()).padStart(2, '0');
+      return `${d.getFullYear()}-${mesStr}-${diaStr}`;
+    }
+
+    // 5. Formato texto natural: "15 de octubre", "15 oct"
+    const meses: Record<string, number> = {
+      enero: 0, ene: 0,
+      febrero: 1, feb: 1,
+      marzo: 2, mar: 2,
+      abril: 3, abr: 3,
+      mayo: 4, may: 4,
+      junio: 5, jun: 5,
+      julio: 6, jul: 6,
+      agosto: 7, ago: 7,
+      septiembre: 8, sep: 8, sept: 8,
+      octubre: 9, oct: 9,
+      noviembre: 10, nov: 10,
+      diciembre: 11, dic: 11,
+    };
+
+    const regexTextoMes = /^(\d{1,2})\s+(?:de\s+)?([a-z]+)(?:\s+(?:de\s+)?(\d{4}))?$/;
+    const matchTextoMes = limpio.match(regexTextoMes);
+    if (matchTextoMes) {
+      const dia = parseInt(matchTextoMes[1], 10);
+      const nombreMes = matchTextoMes[2];
+      if (meses[nombreMes] !== undefined) {
+        const mes = meses[nombreMes];
+        const anio = matchTextoMes[3] ? parseInt(matchTextoMes[3], 10) : hoy.getFullYear();
+        const d = new Date(anio, mes, dia);
+        const mesStr = String(d.getMonth() + 1).padStart(2, '0');
+        const diaStr = String(d.getDate()).padStart(2, '0');
+        return `${d.getFullYear()}-${mesStr}-${diaStr}`;
+      }
+    }
+
+    // 6. Días de la semana relativos: "lunes", "el próximo viernes", "el otro sábado"
+    const diasSemana: Record<string, number> = {
+      domingo: 0, dom: 0,
+      lunes: 1, lun: 1,
+      martes: 2, mar: 2,
+      miercoles: 3, mie: 3,
+      jueves: 4, jue: 4,
+      viernes: 5, vie: 5,
+      sabado: 6, sab: 6,
+    };
+
+    for (const [nombreDia, targetDay] of Object.entries(diasSemana)) {
+      if (limpio.includes(nombreDia)) {
+        const esProximaSemana = limpio.includes('proxim') || limpio.includes('otra') || limpio.includes('siguiente');
+        const diaActual = hoy.getDay();
+        let diff = targetDay - diaActual;
+
+        if (diff <= 0) {
+          diff += 7; // Próximo día
+        }
+        if (esProximaSemana && diff < 7) {
+          diff += 7; // Próxima semana
+        }
+
+        const fechaCalculada = new Date(hoy);
+        fechaCalculada.setDate(hoy.getDate() + diff);
+        const mesStr = String(fechaCalculada.getMonth() + 1).padStart(2, '0');
+        const diaStr = String(fechaCalculada.getDate()).padStart(2, '0');
+        return `${fechaCalculada.getFullYear()}-${mesStr}-${diaStr}`;
+      }
+    }
+
+    return null;
+  }
+
+  private static async manejarSeleccionFecha(input: string, session: UserSession): Promise<BotResponse> {
+    const inputLimpio = input.toLowerCase().trim();
+
+    // Si el usuario tocó "✏️ Escribir otra fecha" en el menú desplegable
+    if (inputLimpio === 'fecha_personalizada' || inputLimpio.includes('otra fecha') || inputLimpio === 'otra') {
       return {
-        texto: '⚠️ Fecha no válida. Por favor selecciona una opción del menú desplegable o escribe una fecha AAAA-MM-DD.',
+        texto: `📅 *Escribe la fecha que deseas para tu partido:*\n\nPuedes escribirla con total libertad como prefieras:\n` +
+          `• Por nombre del mes: *"18 de octubre"*, *"5 de noviembre"*\n` +
+          `• Por números: *"18/10"*, *"25/11/2026"*\n` +
+          `• Por día relativo: *"el próximo viernes"*, *"el otro sábado"*\n\n` +
+          `✍️ Escribe tu fecha aquí abajo:`,
+      };
+    }
+
+    const fecha = this.interpretarFecha(input);
+
+    if (!fecha) {
+      return {
+        texto: '⚠️ No entendí la fecha. Puedes seleccionar una fecha sugerida en el menú tocando *Elegir Fecha*, o escribir libremente la fecha que quieras (ej. *"18 de octubre"*, *"el próximo viernes"* o *"15/10"*).',
+      };
+    }
+
+    // Validar que no sea una fecha en el pasado
+    const hoyStr = new Date().toISOString().split('T')[0];
+    if (fecha < hoyStr) {
+      return {
+        texto: `⚠️ La fecha que ingresaste (*${fecha}*) ya pasó. Por favor escribe una fecha futura (ejemplo: *"18 de octubre"* o *"el próximo sábado"*).`,
       };
     }
 
