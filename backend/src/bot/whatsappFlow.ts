@@ -938,31 +938,31 @@ export class WhatsAppFlow {
       };
     }
 
-    // 4. Si es solo saludo o consulta general, mostrar la carta exclusiva a domicilio
+    // 4. Si es solo saludo o consulta general, mostrar la carta exclusiva con licor a domicilio
     return {
-      texto: `👋 ¡Hola ${nombrePush || ''}! Bienvenido a *Graniza2KL* 🍧✨\n` +
-        `Especialistas en granizados artesanales de fruta natural.\n` +
+      texto: `👋 ¡Hola ${nombrePush || ''}! Bienvenido a *Graniza2KL - Granizados con Licor* 🍸🍧\n` +
+        `Especialistas en cócteles frappé y granizados artesanales con licor (+18).\n` +
         `🛵 *Servicio 100% Exclusivo a Domicilio en Pereira y Dosquebradas.*\n\n` +
-        `*🥭 NUESTRA CARTA DE GRANIZADOS:*\n` +
-        `1️⃣ *Personal (12oz):* $7.000\n` +
-        `2️⃣ *Clásico (16oz):* $9.000  *(El más pedido)*\n` +
-        `3️⃣ *Mega Especial (24oz):* $13.000\n\n` +
-        `*🍧 Sabores de Fruta Natural:*\n` +
-        `• Mango Biche (con sal y limón)\n` +
-        `• Maracuyá (con lecherita)\n` +
-        `• Frutos Rojos silvestres\n` +
-        `• Café Frappé con crema\n` +
-        `• Tamarindo con Chamoy y Tajín\n\n` +
+        `*🍸 NUESTRA CARTA DE CÓCTELES GRANIZADOS (+18):*\n` +
+        `1️⃣ *Clásico con Licor (16oz):* $12.000 COP\n` +
+        `2️⃣ *Mega Cóctel Frappé (24oz):* $17.000 COP  *(Para rumbear o compartir)*\n\n` +
+        `*🍹 Sabores & Combinaciones con Licor:*\n` +
+        `• *Maracuyá con Vodka Smirnoff* (con lecherita)\n` +
+        `• *Mango Biche Tequilero* (con Tequila, sal, limón y tajín)\n` +
+        `• *Frutos Rojos con Ron* (silvestres con toque de ron)\n` +
+        `• *Café Baileys Frappé* (con crema de whisky)\n` +
+        `• *Tamarindo Tequilero* (con Chamoy y Tajín)\n` +
+        `• *Coco Loco Frappé* (con Ron Blanco)\n\n` +
         `✨ *Toppings gratis a elección:* Lecherita, Chamoy, Tajín o Sal y Limón.\n\n` +
         `🛵 *¿Cómo pedir?*\n` +
         `Escríbenos directamente lo que deseas y tu dirección.\n` +
-        `👉 *Ejemplo:* _"Quiero 2 clásicos de mango biche para la Calle 15 # 4-20"_\n` +
-        `¡Y te lo despachamos en minutos! 🍧💨`,
+        `👉 *Ejemplo:* _"Quiero 2 clásicos de maracuyá con vodka para la Calle 15 # 4-20 Álamos"_\n` +
+        `¡Y te los despachamos de inmediato! 🍸💨`,
     };
   }
 
   /**
-   * Extrae sabores, cantidades, tamaños y dirección de un texto libre para Graniza2KL
+   * Extrae sabores, licores, cantidades, tamaños y dirección de un texto libre para Graniza2KL
    */
   private static extraerPedidoGranizados(texto: string): {
     esPedido: boolean;
@@ -973,34 +973,37 @@ export class WhatsAppFlow {
   } {
     const t = texto.toLowerCase();
     const saboresDisponibles = [
-      { clave: 'mango', nombre: 'Mango Biche con sal y limón' },
-      { clave: 'biche', nombre: 'Mango Biche con sal y limón' },
-      { clave: 'maracuya', nombre: 'Maracuyá con lecherita' },
-      { clave: 'maracuyá', nombre: 'Maracuyá con lecherita' },
-      { clave: 'frutos rojos', nombre: 'Frutos Rojos silvestres' },
-      { clave: 'mora', nombre: 'Frutos Rojos silvestres' },
-      { clave: 'fresa', nombre: 'Frutos Rojos silvestres' },
-      { clave: 'tamarindo', nombre: 'Tamarindo con Chamoy y Tajín' },
-      { clave: 'chamoy', nombre: 'Tamarindo con Chamoy y Tajín' },
-      { clave: 'cafe', nombre: 'Café Frappé' },
-      { clave: 'café', nombre: 'Café Frappé' },
-      { clave: 'frappe', nombre: 'Café Frappé' },
-      { clave: 'limon', nombre: 'Limón Frappé con sal' },
-      { clave: 'limón', nombre: 'Limón Frappé con sal' },
+      { clave: 'maracuya', nombre: 'Maracuyá con Vodka (+18)' },
+      { clave: 'maracuyá', nombre: 'Maracuyá con Vodka (+18)' },
+      { clave: 'vodka', nombre: 'Maracuyá con Vodka (+18)' },
+      { clave: 'mango', nombre: 'Mango Biche Tequilero (+18)' },
+      { clave: 'biche', nombre: 'Mango Biche Tequilero (+18)' },
+      { clave: 'tequila', nombre: 'Mango Biche Tequilero (+18)' },
+      { clave: 'frutos rojos', nombre: 'Frutos Rojos con Ron (+18)' },
+      { clave: 'ron', nombre: 'Frutos Rojos con Ron (+18)' },
+      { clave: 'mora', nombre: 'Frutos Rojos con Ron (+18)' },
+      { clave: 'baileys', nombre: 'Café Baileys Frappé (+18)' },
+      { clave: 'cafe', nombre: 'Café Baileys Frappé (+18)' },
+      { clave: 'café', nombre: 'Café Baileys Frappé (+18)' },
+      { clave: 'tamarindo', nombre: 'Tamarindo Tequilero con Chamoy (+18)' },
+      { clave: 'chamoy', nombre: 'Tamarindo Tequilero con Chamoy (+18)' },
+      { clave: 'coco', nombre: 'Coco Loco con Ron (+18)' },
+      { clave: 'guaro', nombre: 'Granizado Antioqueño con Maracuyá (+18)' },
+      { clave: 'aguardiente', nombre: 'Granizado Antioqueño con Maracuyá (+18)' },
     ];
 
-    let precioUnitario = 9000;
-    let tamanoStr = 'Clásico 16oz';
+    let precioUnitario = 12000;
+    let tamanoStr = 'Clásico con Licor (16oz)';
     if (t.includes('mega') || t.includes('24oz') || t.includes('grande')) {
-      precioUnitario = 13000;
-      tamanoStr = 'Mega 24oz';
+      precioUnitario = 17000;
+      tamanoStr = 'Mega Cóctel (24oz)';
     } else if (t.includes('personal') || t.includes('12oz') || t.includes('pequeñ') || t.includes('pequen')) {
-      precioUnitario = 7000;
-      tamanoStr = 'Personal 12oz';
+      precioUnitario = 9000;
+      tamanoStr = 'Personal con Licor (12oz)';
     }
 
     let cantidadGlobal = 1;
-    const numMatch = t.match(/(\d+)\s*(?:granizado|vaso|mega|clasico|personal|de)/i);
+    const numMatch = t.match(/(\d+)\s*(?:granizado|vaso|coctel|cóctel|mega|clasico|personal|de)/i);
     if (numMatch && parseInt(numMatch[1], 10) > 0) {
       cantidadGlobal = parseInt(numMatch[1], 10);
     } else if (t.includes('dos ') || t.includes('2 ')) {
@@ -1021,8 +1024,8 @@ export class WhatsAppFlow {
       }
     }
 
-    if (itemsEncontrados.length === 0 && (t.includes('granizado') || t.includes('granizados'))) {
-      itemsEncontrados.push(`${cantidadGlobal}x Granizado ${tamanoStr} Artesanal`);
+    if (itemsEncontrados.length === 0 && (t.includes('granizado') || t.includes('granizados') || t.includes('coctel') || t.includes('licor'))) {
+      itemsEncontrados.push(`${cantidadGlobal}x Granizado ${tamanoStr} Especial (+18)`);
     }
 
     let direccion: string | undefined;

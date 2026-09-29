@@ -203,8 +203,8 @@ export class AIReceptionistService {
     let invitacionFinal = 'Escribe *HOLA* o *MENU* para ver las canchas y turnos disponibles ⚽🎾.';
 
     if (tipo === 'pedidos' || complejo.slug === 'graniza2kl') {
-      entidad = 'del negocio de granizados artesanales 100% a domicilio';
-      invitacionFinal = 'Escribe los granizados que deseas y tu dirección para enviarte el domicilio 🍧🛵.';
+      entidad = 'del negocio de granizados con licor y cócteles frappé 100% a domicilio (+18)';
+      invitacionFinal = 'Escribe los granizados con licor que deseas y tu dirección para enviarte el domicilio 🍸🛵.';
     } else if (tipo === 'barberia') {
       entidad = 'de la barbería';
       invitacionFinal = 'Escribe *HOLA* o *MENU* para ver los barberos y turnos disponibles 💈✂️.';
@@ -235,7 +235,7 @@ PREGUNTA DEL CLIENTE:
 INSTRUCCIONES:
 - Responde con tono colombiano amable, respetuoso y profesional.
 - Basado estrictamente en las reglas exclusivas de este negocio.
-- Recuerda que para Graniza2KL el servicio es 100% EXCLUSIVO A DOMICILIO, no hay atención en local ni recogida.
+- Recuerda que para Graniza2KL los granizados son CON LICOR (+18) y el servicio es 100% EXCLUSIVO A DOMICILIO, no hay atención en local ni recogida.
 - Termina siempre invitando cordialmente a reservar o pedir con: "${invitacionFinal}"`;
 
     const modelosDisponibles = [
@@ -281,8 +281,8 @@ INSTRUCCIONES:
     let labelEventos = `🏆 *Eventos y Torneos en ${complejo.nombre}:*\n`;
 
     if (tipo === 'pedidos' || complejo.slug === 'graniza2kl') {
-      pie = `\n\n¿Deseas pedir tu granizado a domicilio? Escribe tu pedido y dirección de entrega 🍧🛵.`;
-      labelEventos = `🍧 *Eventos y Pedidos Especiales en ${complejo.nombre}:*\n`;
+      pie = `\n\n¿Deseas pedir tu granizado con licor a domicilio? Escribe tu pedido y dirección de entrega 🍸🛵.`;
+      labelEventos = `🍸 *Previas y Eventos en ${complejo.nombre}:*\n`;
     } else if (tipo === 'barberia') {
       pie = `\n\n¿Deseas agendar tu cita? Escribe *HOLA* o *MENU* para ver barberos y horarios 💈✂️.`;
       labelEventos = `💈 *Servicios y Planes en ${complejo.nombre}:*\n`;

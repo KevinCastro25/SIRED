@@ -199,19 +199,19 @@ export const OrdersDashboard: React.FC<Props> = ({
   return (
     <div className="space-y-6">
       {/* Banner de Cabecera para Graniza2KL */}
-      <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-orange-500 text-white p-5 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-purple-800 via-pink-700 to-amber-600 text-white p-5 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🍧</span>
+            <span className="text-2xl">🍸</span>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">
               {complejo.nombre}
             </h1>
             <span className="bg-white/20 backdrop-blur-md text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider text-white">
-              100% Domicilios
+              100% Domicilios (+18)
             </span>
           </div>
-          <p className="text-amber-100 text-xs sm:text-sm">
-            Comandera de pedidos en vivo, despacho de repartidores y análisis de horas pico de venta.
+          <p className="text-pink-100 text-xs sm:text-sm">
+            Comandera de cócteles frappé con licor en vivo, despacho de repartidores y análisis de horas pico de rumba y previas.
           </p>
         </div>
 
@@ -626,18 +626,18 @@ export const OrdersDashboard: React.FC<Props> = ({
 
           {/* Ranking de Sabores & Tamaños Más Pedidos */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Sabores */}
+            {/* Sabores y Licores */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <span>🥭</span> Sabores Más Pedidos (Popularidad)
+                <span>🍸</span> Cócteles & Granizados con Licor Más Pedidos
               </h3>
               <div className="space-y-3">
                 {[
-                  { sabor: 'Mango Biche con Sal y Limón', porcentaje: 42, color: 'bg-amber-500' },
-                  { sabor: 'Maracuyá con Lecherita', porcentaje: 28, color: 'bg-yellow-500' },
-                  { sabor: 'Frutos Rojos Silvestres', porcentaje: 16, color: 'bg-rose-500' },
-                  { sabor: 'Tamarindo con Chamoy y Tajín', porcentaje: 9, color: 'bg-orange-600' },
-                  { sabor: 'Café Frappé Especial', porcentaje: 5, color: 'bg-stone-600' },
+                  { sabor: 'Mango Biche Tequilero (+18)', porcentaje: 42, color: 'bg-amber-500' },
+                  { sabor: 'Maracuyá con Vodka Smirnoff (+18)', porcentaje: 28, color: 'bg-yellow-500' },
+                  { sabor: 'Frutos Rojos con Ron Medellín (+18)', porcentaje: 16, color: 'bg-rose-500' },
+                  { sabor: 'Tamarindo Tequilero con Chamoy (+18)', porcentaje: 9, color: 'bg-orange-600' },
+                  { sabor: 'Café Baileys Frappé Especial (+18)', porcentaje: 5, color: 'bg-purple-600' },
                 ].map((item) => (
                   <div key={item.sabor} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
@@ -655,16 +655,16 @@ export const OrdersDashboard: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* Tamaños y Toppings */}
+            {/* Tamaños y Licores */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <span>🥤</span> Preferencia de Tamaños & Presentación
               </h3>
               <div className="space-y-3">
                 {[
-                  { tamano: 'Clásico 16oz ($9.000 COP)', porcentaje: 54, tag: 'Más Rentable', color: 'bg-emerald-500' },
-                  { tamano: 'Mega Especial 24oz ($13.000 COP)', porcentaje: 31, tag: 'Mayor Margen', color: 'bg-purple-500' },
-                  { tamano: 'Personal 12oz ($7.000 COP)', porcentaje: 15, tag: 'Individual', color: 'bg-blue-500' },
+                  { tamano: 'Clásico con Licor 16oz ($12.000 COP)', porcentaje: 54, tag: 'Más Vendido', color: 'bg-emerald-500' },
+                  { tamano: 'Mega Cóctel Frappé 24oz ($17.000 COP)', porcentaje: 31, tag: 'Para Rumbear', color: 'bg-purple-500' },
+                  { tamano: 'Personal con Licor 12oz ($9.000 COP)', porcentaje: 15, tag: 'Individual', color: 'bg-blue-500' },
                 ].map((item) => (
                   <div key={item.tamano} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
@@ -687,16 +687,16 @@ export const OrdersDashboard: React.FC<Props> = ({
               </div>
 
               <div className="pt-2 border-t border-slate-100">
-                <span className="text-[11px] font-bold text-slate-500 block mb-1">Toppings Más Solicitados:</span>
+                <span className="text-[11px] font-bold text-slate-500 block mb-1">Licores y Adiciones Preferidas:</span>
                 <div className="flex flex-wrap gap-1.5 text-xs">
-                  <span className="bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-lg font-medium">
-                    🥛 Lecherita (74%)
+                  <span className="bg-purple-50 text-purple-900 border border-purple-200 px-2 py-0.5 rounded-lg font-medium">
+                    🍸 Vodka Smirnoff (48%)
                   </span>
-                  <span className="bg-orange-50 text-orange-900 border border-orange-200 px-2 py-0.5 rounded-lg font-medium">
-                    🌶️ Chamoy + Tajín (58%)
+                  <span className="bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-lg font-medium">
+                    🌵 Tequila José Cuervo (35%)
                   </span>
                   <span className="bg-rose-50 text-rose-900 border border-rose-200 px-2 py-0.5 rounded-lg font-medium">
-                    🍬 Gomitas Trululu (32%)
+                    🥃 Ron Caldas / Medellín (17%)
                   </span>
                 </div>
               </div>

@@ -237,28 +237,36 @@ precios o cancelaciones usando la base de conocimiento en `complejos_faq.json`.
 Si el usuario pide hablar con una persona, activa derivación a asesor humano.
 
 ================================================================================
-6. CASO ESPECIAL GASTRONÓMICO: GRANIZA2KL (100% DOMICILIOS)
+6. CASO ESPECIAL GASTRONÓMICO: GRANIZA2KL (GRANIZADOS CON LICOR - 100% DOMICILIOS)
 ================================================================================
 Slug: `graniza2kl`
 Tipo de negocio: `'pedidos'`
-Ubicación: Pereira y Dosquebradas (Servicio EXCLUSIVO a domicilio, no hay retiro).
+Ubicación: Pereira y Dosquebradas (Servicio EXCLUSIVO a domicilio +18, no hay retiro).
 
-A) CARTA DE PRODUCTOS CONFIGURADA:
-- Personal (12oz): $7.000 COP
-- Clásico (16oz): $9.000 COP (El más vendido)
-- Mega Especial (24oz): $13.000 COP
-- Sabores: Mango Biche con sal y limón, Maracuyá con lecherita, Frutos Rojos,
-  Café Frappé, Tamarindo con Chamoy y Tajín.
+A) CARTA DE PRODUCTOS CONFIGURADA (+18):
+- Personal con Licor (12oz): $9.000 COP
+- Clásico con Licor (16oz): $12.000 COP (El más vendido)
+- Mega Cóctel Frappé (24oz): $17.000 COP (Para rumbear o compartir)
+- Especialidades y Combinaciones con Licor:
+  * Maracuyá con Vodka Smirnoff (con lecherita)
+  * Mango Biche Tequilero (con Tequila José Cuervo, sal, limón y tajín)
+  * Frutos Rojos con Ron (Ron Medellín / Caldas con frutas silvestres)
+  * Café Baileys Frappé (con crema de whisky Baileys)
+  * Tamarindo Tequilero (con Chamoy y Tajín)
+  * Coco Loco Frappé (con Ron Blanco)
+- Licores disponibles: Vodka Smirnoff, Tequila José Cuervo, Ron Caldas/Medellín, Baileys, Aguardiente.
+- Toppings gratis: Lecherita, Chamoy, Tajín o Sal y Limón.
 
 B) COMPONENTES EN FRONTEND (`OrdersDashboard.tsx`):
 1. Comandera Digital en Tiempo Real:
-   - Filtros: Todos, Esperando Nequi, En Preparación (Cocina), En Domicilio 🛵, Entregados ✅.
+   - Filtros: Todos, Esperando Nequi, En Preparación (Barra de licuado), En Domicilio 🛵, Entregados ✅.
    - Tarjetas de comanda con copia rápida de dirección y enlace directo a WhatsApp.
    - Botones para avanzar estado en 1 clic.
 2. Analíticas de Horas Pico:
    - Mapa de calor de 12:00 PM a 10:00 PM.
-   - Franja pico identificada: 3:00 PM a 6:00 PM (68% de las solicitudes).
-   - Ranking porcentual de sabores y tamaños más vendidos.
+   - Franja pico identificada: Tardes de 3:00 PM a 6:00 PM y noches de previas/fiestas de 7:00 PM a 10:00 PM.
+   - Ranking porcentual de licores más pedidos: Vodka (48%), Tequila (35%), Ron (17%).
+
 
 ================================================================================
 7. CONVENCIONES DE CÓDIGO Y CONTROL DE VERSIONES (GIT)
