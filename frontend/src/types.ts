@@ -38,6 +38,7 @@ export interface Reserva {
 export interface Complejo {
   id: string;
   slug?: string;
+  tipo_negocio?: 'deportes' | 'barberia' | 'belleza_unas' | 'salud';
   nombre: string;
   direccion?: string;
   ciudad?: string;

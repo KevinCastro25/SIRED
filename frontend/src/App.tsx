@@ -17,6 +17,8 @@ import {
   IconRefresh,
   IconLogout,
   IconPhone,
+  IconCopy,
+  IconCheck,
 } from '@tabler/icons-react';
 
 export function App() {
@@ -27,6 +29,7 @@ export function App() {
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [periodoMetricas, setPeriodoMetricas] = useState<'hoy' | 'semana' | 'mes'>('semana');
+  const [enlaceCopiado, setEnlaceCopiado] = useState(false);
 
   // Estado de Autenticación y Control de Roles
   const [usuarioActual, setUsuarioActual] = useState<PerfilUsuario | null>(() => {
@@ -47,24 +50,63 @@ export function App() {
   const [actualizando, setActualizando] = useState(false);
   const [pestanaActiva, setPestanaActiva] = useState<'calendario' | 'metricas'>('calendario');
 
-  // 1. Cargar lista de complejos / empresas
+  // 1. Cargar lista de complejos / empresas con detección dinámica por slug en la URL
   const cargarComplejos = async () => {
     try {
       const res = await fetch('/api/complejos');
       if (res.ok) {
         const data: Complejo[] = await res.json();
         setComplejos(data || []);
-        if (data.length > 0 && !complejoActualId) {
-          // Si el usuario es de un complejo específico, forzar su empresa
-          if (usuarioActual && usuarioActual.rol !== 'superadmin' && usuarioActual.complejo_id) {
-            setComplejoActualId(usuarioActual.complejo_id);
-          } else {
-            setComplejoActualId(data[0].id);
+
+        if (data && data.length > 0) {
+          // Detectar slug de la ruta actual (ej: /el-diamante o /barberia-carlos)
+          const pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+          const slugRuta = ['login', 'admin', 'metricas', 'calendario'].includes(pathSlug) ? '' : pathSlug;
+
+          let targetId = '';
+
+          // A) Si la URL tiene un slug específico, cargarlo directamente
+          if (slugRuta) {
+            const encontradoPorSlug = data.find((c) => c.slug?.toLowerCase() === slugRuta);
+            if (encontradoPorSlug) {
+              targetId = encontradoPorSlug.id;
+            }
+          }
+
+          // B) Si el usuario logueado pertenece a un negocio específico y no es superadmin
+          if (!targetId && usuarioActual && usuarioActual.rol !== 'superadmin' && usuarioActual.complejo_id) {
+            targetId = usuarioActual.complejo_id;
+          }
+
+          // C) Si no hay selección, tomar el primero
+          if (!targetId) {
+            targetId = complejoActualId || data[0].id;
+          }
+
+          setComplejoActualId(targetId);
+          cargarDatos(targetId);
+
+          // Si cargó por slug o si superadmin cambia, asegurar que el slug esté en la barra de URL
+          const activo = data.find((c) => c.id === targetId);
+          if (activo?.slug && !['login', 'admin'].includes(pathSlug)) {
+            window.history.replaceState(null, '', `/${activo.slug}`);
           }
         }
       }
     } catch (err) {
       console.error('Error cargando empresas:', err);
+    }
+  };
+
+  // Cambiar de empresa (para SuperAdmin) y actualizar la URL en vivo
+  const handleCambiarComplejo = (nuevoId: string) => {
+    setComplejoActualId(nuevoId);
+    cargarDatos(nuevoId);
+    const target = complejos.find((c) => c.id === nuevoId);
+    if (target?.slug) {
+      window.history.pushState(null, '', `/${target.slug}`);
+    } else {
+      window.history.pushState(null, '', '/');
     }
   };
 
@@ -100,6 +142,22 @@ export function App() {
   useEffect(() => {
     cargarComplejos();
   }, []);
+
+  // Escuchar navegación del historial del navegador (Atrás / Adelante)
+  useEffect(() => {
+    const onPopState = () => {
+      const pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+      if (pathSlug && complejos.length > 0) {
+        const match = complejos.find((c) => c.slug?.toLowerCase() === pathSlug);
+        if (match && match.id !== complejoActualId) {
+          setComplejoActualId(match.id);
+          cargarDatos(match.id);
+        }
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [complejos, complejoActualId]);
 
   // Al cambiar la empresa o la fecha, refrescar los datos
   useEffect(() => {
@@ -236,6 +294,47 @@ export function App() {
   const complejoActivo = complejos.find((c) => c.id === complejoActualId) || complejos[0];
   const esSuperAdmin = usuarioActual.rol === 'superadmin';
 
+  const rubro = complejoActivo?.tipo_negocio || 'deportes';
+  const configRubro = {
+    deportes: {
+      badge: '⚽ Deportes',
+      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      recursos: 'Canchas Deportivas',
+      vacio: 'No hay canchas registradas para este complejo deportivo.',
+    },
+    barberia: {
+      badge: '💈 Barbería',
+      badgeColor: 'bg-blue-50 text-blue-800 border-blue-200',
+      recursos: 'Puestos y Barberos',
+      vacio: 'No hay puestos o barberos registrados para esta barbería.',
+    },
+    belleza_unas: {
+      badge: '💅 Spa & Uñas',
+      badgeColor: 'bg-pink-50 text-pink-800 border-pink-200',
+      recursos: 'Especialistas y Mesas',
+      vacio: 'No hay especialistas o puestos de atención registrados para este salón.',
+    },
+    salud: {
+      badge: '🩺 Consultorio',
+      badgeColor: 'bg-teal-50 text-teal-800 border-teal-200',
+      recursos: 'Consultorios y Especialistas',
+      vacio: 'No hay consultorios registrados para este centro de salud.',
+    },
+  }[rubro as 'deportes' | 'barberia' | 'belleza_unas' | 'salud'] || {
+    badge: '🏢 Negocio',
+    badgeColor: 'bg-slate-50 text-slate-800 border-slate-200',
+    recursos: 'Recursos / Puestos',
+    vacio: 'No hay recursos registrados.',
+  };
+
+  const copiarEnlaceNegocio = () => {
+    if (!complejoActivo?.slug) return;
+    const url = `${window.location.origin}/${complejoActivo.slug}`;
+    navigator.clipboard.writeText(url);
+    setEnlaceCopiado(true);
+    setTimeout(() => setEnlaceCopiado(false), 2500);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       {/* Barra de Navegación Superior Limpia */}
@@ -250,27 +349,44 @@ export function App() {
 
             {/* Selector de Empresa para SuperAdmin o Badge de Club */}
             {esSuperAdmin ? (
-              <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs">
-                <IconBuilding className="w-4 h-4 text-emerald-700 mr-2 shrink-0" />
-                <select
-                  value={complejoActualId}
-                  onChange={(e) => setComplejoActualId(e.target.value)}
-                  className="bg-transparent font-semibold text-slate-800 outline-none cursor-pointer pr-1"
-                >
-                  {complejos.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre} {c.ciudad ? `(${c.ciudad})` : ''}
-                    </option>
-                  ))}
-                  {complejos.length === 0 && (
-                    <option value="">Cargando empresas...</option>
-                  )}
-                </select>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs">
+                  <IconBuilding className="w-4 h-4 text-emerald-700 mr-2 shrink-0" />
+                  <select
+                    value={complejoActualId}
+                    onChange={(e) => handleCambiarComplejo(e.target.value)}
+                    className="bg-transparent font-semibold text-slate-800 outline-none cursor-pointer pr-1"
+                  >
+                    {complejos.map((c) => {
+                      const icon =
+                        c.tipo_negocio === 'barberia'
+                          ? '💈'
+                          : c.tipo_negocio === 'belleza_unas'
+                          ? '💅'
+                          : c.tipo_negocio === 'salud'
+                          ? '🩺'
+                          : '⚽';
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {icon} {c.nombre} {c.ciudad ? `(${c.ciudad})` : ''}
+                        </option>
+                      );
+                    })}
+                    {complejos.length === 0 && (
+                      <option value="">Cargando negocios...</option>
+                    )}
+                  </select>
+                </div>
               </div>
             ) : (
-              <div className="flex items-center bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-3 py-1 text-xs font-semibold">
-                <IconBuilding className="w-3.5 h-3.5 text-emerald-700 mr-1.5 shrink-0" />
-                <span>{complejoActivo?.nombre || 'Mi Complejo'}</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-3 py-1 text-xs font-semibold">
+                  <IconBuilding className="w-3.5 h-3.5 text-emerald-700 mr-1.5 shrink-0" />
+                  <span>{complejoActivo?.nombre || 'Mi Negocio'}</span>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${configRubro.badgeColor}`}>
+                  {configRubro.badge}
+                </span>
               </div>
             )}
           </div>
@@ -325,11 +441,11 @@ export function App() {
             {esSuperAdmin && (
               <button
                 onClick={() => setModalComplejoAbierto(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl border border-slate-200 transition"
-                title="Registrar una nueva empresa"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm transition"
+                title="Registrar una nueva empresa o salón"
               >
-                <IconPlus className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="hidden md:inline">Nueva Empresa</span>
+                <IconPlus className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Nuevo Negocio</span>
               </button>
             )}
 
@@ -374,15 +490,47 @@ export function App() {
               transition={{ duration: 0.15 }}
               className="space-y-4"
             >
-              {/* Barra informativa minimalista y limpia */}
+              {/* Barra informativa minimalista y limpia con enlace dinámico por slug */}
               <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-slate-900 text-sm">{complejoActivo?.nombre}</span>
-                  {complejoActivo?.telefono_whatsapp && (
-                    <span className="text-slate-500 flex items-center gap-1 font-mono">
-                      <IconPhone className="w-3.5 h-3.5 text-emerald-600" /> {complejoActivo.telefono_whatsapp}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-900 text-sm">{complejoActivo?.nombre}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${configRubro.badgeColor}`}>
+                      {configRubro.badge}
                     </span>
+                  </div>
+
+                  {complejoActivo?.slug && (
+                    <button
+                      onClick={copiarEnlaceNegocio}
+                      title="Copiar enlace personalizado del negocio"
+                      className="flex items-center gap-1 font-mono text-[11px] bg-slate-50 hover:bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg border border-slate-200 transition"
+                    >
+                      {enlaceCopiado ? (
+                        <>
+                          <IconCheck className="w-3 h-3 text-emerald-600" />
+                          <span className="text-emerald-700 font-bold">¡Enlace copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <IconCopy className="w-3 h-3 text-slate-400" />
+                          <span>/{complejoActivo.slug}</span>
+                        </>
+                      )}
+                    </button>
                   )}
+
+                  {complejoActivo?.telefono_whatsapp && (
+                    <a
+                      href={`https://wa.me/${complejoActivo.telefono_whatsapp.replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-slate-500 hover:text-emerald-700 flex items-center gap-1 font-mono transition"
+                    >
+                      <IconPhone className="w-3.5 h-3.5 text-emerald-600" /> {complejoActivo.telefono_whatsapp}
+                    </a>
+                  )}
+
                   {complejoActivo?.nequi_numero && (
                     <span className="text-slate-500 hidden sm:inline">
                       • Nequi/Davi: <strong className="text-slate-800 font-mono">{complejoActivo.nequi_numero}</strong>
@@ -405,7 +553,7 @@ export function App() {
               ) : (
                 <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center space-y-3 shadow-sm">
                   <p className="text-slate-600 text-sm">
-                    No hay canchas registradas para <strong className="text-slate-900">{complejoActivo?.nombre || 'esta empresa'}</strong>.
+                    {configRubro.vacio}
                   </p>
                   <button
                     onClick={() => cargarDatos()}

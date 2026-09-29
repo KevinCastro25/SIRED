@@ -3,6 +3,7 @@ import { supabase } from '../config/supabase.js';
 export interface Complejo {
   id: string;
   slug?: string;
+  tipo_negocio?: 'deportes' | 'barberia' | 'belleza_unas' | 'salud' | string;
   nombre: string;
   direccion?: string;
   ciudad?: string;
@@ -93,14 +94,28 @@ export class BookingService {
    * Crea una nueva empresa / complejo deportivo en la plataforma
    */
   static async crearComplejo(datos: Partial<Complejo>): Promise<Complejo> {
-    const { data, error } = await supabase
-      .from('complejos')
-      .insert(datos)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('complejos')
+        .insert(datos)
+        .select()
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) throw error;
+      return data;
+    } catch (err: any) {
+      if (err.message?.includes('tipo_negocio')) {
+        const { tipo_negocio, ...resto } = datos;
+        const { data, error } = await supabase
+          .from('complejos')
+          .insert(resto)
+          .select()
+          .single();
+        if (error) throw error;
+        return { ...data, tipo_negocio: tipo_negocio || 'deportes' };
+      }
+      throw err;
+    }
   }
 
   /**

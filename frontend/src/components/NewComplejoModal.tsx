@@ -20,6 +20,7 @@ interface Props {
 export const NewComplejoModal: React.FC<Props> = ({ isOpen, onClose, onComplejoCreado }) => {
   const [nombre, setNombre] = useState('');
   const [slug, setSlug] = useState('');
+  const [tipoNegocio, setTipoNegocio] = useState<'deportes' | 'barberia' | 'belleza_unas' | 'salud'>('deportes');
   const [ciudad, setCiudad] = useState('Bogotá');
   const [direccion, setDireccion] = useState('');
   const [telefonoWhatsApp, setTelefonoWhatsApp] = useState('+57');
@@ -58,6 +59,7 @@ export const NewComplejoModal: React.FC<Props> = ({ isOpen, onClose, onComplejoC
         body: JSON.stringify({
           nombre,
           slug,
+          tipo_negocio: tipoNegocio,
           ciudad,
           direccion,
           telefono_whatsapp: telefonoWhatsApp,
@@ -117,28 +119,45 @@ export const NewComplejoModal: React.FC<Props> = ({ isOpen, onClose, onComplejoC
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Nombre Comercial de la Empresa / Complejo *</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Nombre Comercial del Negocio *</label>
             <input
               type="text"
               required
-              placeholder="Ej. Club Campestre Padel & Soccer"
+              placeholder="Ej. Barbería Royal, Glamour Nails o Club El Diamante"
               value={nombre}
               onChange={(e) => handleNombreChange(e.target.value)}
               className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-emerald-600"
             />
           </div>
 
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Tipo de Negocio / Rubro *</label>
+            <select
+              value={tipoNegocio}
+              onChange={(e) => setTipoNegocio(e.target.value as any)}
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-900 outline-none focus:bg-white focus:border-emerald-600"
+            >
+              <option value="deportes">⚽ Complejo Deportivo (Canchas de Fútbol, Pádel, Tenis)</option>
+              <option value="barberia">💈 Barbería / Peluquería (Cortes, Barba, Tinturas)</option>
+              <option value="belleza_unas">💅 Spa de Uñas / Salón de Belleza / Estética</option>
+              <option value="salud">🩺 Consultorio Médico / Odontología / Fisioterapia</option>
+            </select>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Identificador Slug (Único)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Enlace / Slug Único</label>
               <input
                 type="text"
                 required
-                placeholder="club-campestre"
+                placeholder="barberia-royal"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-emerald-600 font-mono"
               />
+              <p className="text-[10px] text-emerald-700 font-mono mt-1 truncate">
+                sired.vercel.app/{slug || 'mi-negocio'}
+              </p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
