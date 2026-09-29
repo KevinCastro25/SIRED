@@ -5,6 +5,8 @@ import {
   IconRefresh,
   IconX,
   IconMessageDots,
+  IconList,
+  IconChevronRight,
 } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import { Complejo } from '../types.ts';
@@ -21,6 +23,20 @@ interface MensajeChat {
   autor: 'usuario' | 'bot';
   texto: string;
   hora: string;
+  interactive?: {
+    type: 'list';
+    action: {
+      button: string;
+      sections: Array<{
+        title?: string;
+        rows: Array<{
+          id: string;
+          title: string;
+          description?: string;
+        }>;
+      }>;
+    };
+  };
 }
 
 export const BotSimulatorModal: React.FC<Props> = ({
@@ -83,6 +99,7 @@ export const BotSimulatorModal: React.FC<Props> = ({
         autor: 'bot',
         texto: data.respuesta_bot,
         hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        interactive: data.interactive,
       };
 
       setMensajes((prev) => [...prev, nuevoMensajeBot]);
@@ -175,6 +192,39 @@ export const BotSimulatorModal: React.FC<Props> = ({
               }`}
             >
               {m.texto}
+
+              {/* Menú Desplegable Interactivo de WhatsApp */}
+              {m.interactive && (
+                <div className="mt-3 pt-2.5 border-t border-slate-700/80 space-y-2">
+                  <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <IconList className="w-3.5 h-3.5" />
+                    <span>{m.interactive.action.button}</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                    {m.interactive.action.sections.flatMap((s) => s.rows).map((row) => (
+                      <button
+                        key={row.id}
+                        type="button"
+                        onClick={() => enviarMensaje(row.id)}
+                        className="w-full text-left p-2 rounded-xl bg-slate-900/90 hover:bg-emerald-950/80 border border-slate-700 hover:border-emerald-500/60 transition group flex items-center justify-between"
+                      >
+                        <div className="pr-2">
+                          <div className="text-xs font-bold text-white group-hover:text-emerald-300 transition">
+                            {row.title}
+                          </div>
+                          {row.description && (
+                            <div className="text-[10px] text-slate-400 group-hover:text-slate-300">
+                              {row.description}
+                            </div>
+                          )}
+                        </div>
+                        <IconChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 transition shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div
                 className={`text-[9px] mt-1 text-right ${
                   m.autor === 'usuario' ? 'text-emerald-200' : 'text-slate-400'

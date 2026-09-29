@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import { supabase } from './config/supabase.js';
-import { WhatsAppFlow } from './bot/whatsappFlow.js';
+import { WhatsAppFlow, BotResponse } from './bot/whatsappFlow.js';
 import { ReminderService } from './services/reminderService.js';
 import { BookingService } from './services/bookingService.js';
 
@@ -80,6 +80,15 @@ app.post('/webhook', async (req: Request, res: Response) => {
         let texto = messageObj.text?.body || '';
         const nombrePush = contactObj?.profile?.name;
 
+        // Soporte para respuestas interactivas de WhatsApp (Menú desplegable / Botones)
+        if (messageObj.type === 'interactive' && messageObj.interactive) {
+          if (messageObj.interactive.type === 'list_reply' && messageObj.interactive.list_reply) {
+            texto = messageObj.interactive.list_reply.id || messageObj.interactive.list_reply.title || '';
+          } else if (messageObj.interactive.type === 'button_reply' && messageObj.interactive.button_reply) {
+            texto = messageObj.interactive.button_reply.id || messageObj.interactive.button_reply.title || '';
+          }
+        }
+
         let mediaId: string | undefined;
         let mediaType: string | undefined;
 
@@ -99,7 +108,7 @@ app.post('/webhook', async (req: Request, res: Response) => {
           mediaType
         );
 
-        // 3. Responder al cliente usando el token y número de ese complejo
+        // 3. Responder al cliente usando el token y número de ese complejo (con menú desplegable si aplica)
         await enviarMensajeWhatsApp(telefonoCliente, respuestaBot, complejo.whatsapp_token, phoneId);
       }
       res.sendStatus(200);
@@ -112,24 +121,50 @@ app.post('/webhook', async (req: Request, res: Response) => {
   }
 });
 
-async function enviarMensajeWhatsApp(to: string, message: string, customToken?: string, customPhoneId?: string) {
+async function enviarMensajeWhatsApp(
+  to: string,
+  message: string | BotResponse,
+  customToken?: string,
+  customPhoneId?: string
+) {
   const token = customToken || process.env.WHATSAPP_TOKEN;
   const phoneId = customPhoneId || process.env.WHATSAPP_PHONE_NUMBER_ID;
 
+  let payload: any;
+  if (typeof message === 'object' && message.interactive) {
+    payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to,
+      type: 'interactive',
+      interactive: {
+        type: message.interactive.type,
+        ...(message.interactive.header ? { header: { type: 'text', text: message.interactive.header.slice(0, 60) } } : {}),
+        body: { text: message.interactive.body.slice(0, 1024) },
+        ...(message.interactive.footer ? { footer: { text: message.interactive.footer.slice(0, 60) } } : {}),
+        action: message.interactive.action,
+      },
+    };
+  } else {
+    const textBody = typeof message === 'string' ? message : message.texto;
+    payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to,
+      type: 'text',
+      text: { body: textBody },
+    };
+  }
+
   if (!token || !phoneId) {
-    console.log(`[WHATSAPP MENSAJE a ${to}]:\n${message}`);
+    console.log(`[WHATSAPP MENSAJE a ${to}]:`, JSON.stringify(payload, null, 2));
     return;
   }
 
   try {
     await axios.post(
       `https://graph.facebook.com/v21.0/${phoneId}/messages`,
-      {
-        messaging_product: 'whatsapp',
-        to,
-        type: 'text',
-        text: { body: message },
-      },
+      payload,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -163,7 +198,8 @@ app.post('/api/bot/simulate', async (req: Request, res: Response) => {
       complejo: complejo.nombre,
       remitente: telefono,
       mensaje_recibido: mensaje,
-      respuesta_bot: respuesta,
+      respuesta_bot: typeof respuesta === 'string' ? respuesta : respuesta.texto,
+      interactive: typeof respuesta === 'object' ? respuesta.interactive : undefined,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
