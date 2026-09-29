@@ -30,8 +30,8 @@ export const LoginScreen: React.FC<Props> = ({
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Si estamos en una ruta de negocio específico (ej: /el-diamante, /barberia-royal)
-  const esLoginNegocio = Boolean(slugRuta && complejoActivo && complejoActivo.slug === slugRuta);
+  // Si estamos en una ruta de negocio específico (ej: /el-diamante, /padel-club-127)
+  const esLoginNegocio = Boolean(slugRuta && complejoActivo);
 
   const getRubroInfo = (tipo?: string) => {
     switch (tipo) {

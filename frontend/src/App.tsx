@@ -59,17 +59,28 @@ export function App() {
         setComplejos(data || []);
 
         if (data && data.length > 0) {
-          // Detectar slug de la ruta actual (ej: /el-diamante o /barberia-carlos)
-          const pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
-          const slugRuta = ['login', 'admin', 'metricas', 'calendario'].includes(pathSlug) ? '' : pathSlug;
+          // Detectar slug de la ruta actual (ej: /el-diamante, /padel-club-127, /padel-club)
+          const rawSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+          const slugRuta = ['login', 'admin', 'metricas', 'calendario'].includes(rawSlug) ? '' : rawSlug;
 
           let targetId = '';
 
-          // A) Si la URL tiene un slug específico, cargarlo directamente
+          // A) Si la URL tiene un slug específico, buscar coincidencia exacta o flexible
           if (slugRuta) {
-            const encontradoPorSlug = data.find((c) => c.slug?.toLowerCase() === slugRuta);
-            if (encontradoPorSlug) {
-              targetId = encontradoPorSlug.id;
+            const encontrado = data.find((c) => {
+              const s = c.slug?.toLowerCase();
+              if (!s) return false;
+              return (
+                s === slugRuta ||
+                s.replace(/-/g, '') === slugRuta.replace(/-/g, '') ||
+                (slugRuta.length >= 4 && (s.includes(slugRuta) || slugRuta.includes(s)))
+              );
+            });
+
+            if (encontrado) {
+              targetId = encontrado.id;
+              // Normalizar URL en el navegador con el slug oficial del negocio
+              window.history.replaceState(null, '', `/${encontrado.slug}`);
             }
           }
 
@@ -78,19 +89,13 @@ export function App() {
             targetId = usuarioActual.complejo_id;
           }
 
-          // C) Si no hay selección, tomar el primero
+          // C) Si no hay selección y no hay slug, tomar el primero pero mantener la URL limpia en '/'
           if (!targetId) {
             targetId = complejoActualId || data[0].id;
           }
 
           setComplejoActualId(targetId);
           cargarDatos(targetId);
-
-          // Si cargó por slug o si superadmin cambia, asegurar que el slug esté en la barra de URL
-          const activo = data.find((c) => c.id === targetId);
-          if (activo?.slug && !['login', 'admin'].includes(pathSlug)) {
-            window.history.replaceState(null, '', `/${activo.slug}`);
-          }
         }
       }
     } catch (err) {
@@ -146,9 +151,13 @@ export function App() {
   // Escuchar navegación del historial del navegador (Atrás / Adelante)
   useEffect(() => {
     const onPopState = () => {
-      const pathSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
-      if (pathSlug && complejos.length > 0) {
-        const match = complejos.find((c) => c.slug?.toLowerCase() === pathSlug);
+      const rawSlug = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+      const currentSlug = ['login', 'admin', 'metricas', 'calendario'].includes(rawSlug) ? '' : rawSlug;
+      if (complejos.length > 0 && currentSlug) {
+        const match = complejos.find((c) => {
+          const s = c.slug?.toLowerCase();
+          return s === currentSlug || (currentSlug.length >= 4 && (s?.includes(currentSlug) || currentSlug.includes(s || '')));
+        });
         if (match && match.id !== complejoActualId) {
           setComplejoActualId(match.id);
           cargarDatos(match.id);
