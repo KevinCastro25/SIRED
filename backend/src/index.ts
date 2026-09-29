@@ -6,6 +6,7 @@ import { supabase } from './config/supabase.js';
 import { WhatsAppFlow, BotResponse } from './bot/whatsappFlow.js';
 import { ReminderService } from './services/reminderService.js';
 import { BookingService } from './services/bookingService.js';
+import { AIReceptionistService } from './services/aiReceptionistService.js';
 
 dotenv.config();
 
@@ -243,6 +244,30 @@ app.patch('/api/complejos/:id', async (req: Request, res: Response) => {
 
     if (error) throw error;
     res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Consultar base de conocimiento / FAQ personalizada de un complejo
+app.get('/api/complejos/:id/faq', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const complejo = await BookingService.getComplejo(id);
+    if (!complejo) return res.status(404).json({ error: 'Complejo no encontrado' });
+    const info = AIReceptionistService.getConocimientoComplejo(complejo);
+    res.json(info);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Actualizar base de conocimiento / FAQ personalizada de un complejo
+app.post('/api/complejos/:id/faq', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    AIReceptionistService.guardarConocimientoComplejo(id, req.body);
+    res.json({ success: true, message: 'Conocimiento del recepcionista virtual actualizado con éxito' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

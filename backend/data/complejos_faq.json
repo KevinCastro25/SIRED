@@ -1,0 +1,18 @@
+{
+  "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d": {
+    "nombre": "Club Deportivo El Diamante",
+    "parqueadero": "Parqueadero privado gratuito para autos y motos con vigilancia 24/7.",
+    "calzado": "Calzado deportivo torretín (suela de goma para sintética). Prohibido jugar con taches de aluminio o metal.",
+    "servicios": "Cafetería con bebidas hidratantes y snacks, alquiler de petos ($5.000), balones oficiales, vestieres y duchas con agua caliente.",
+    "eventos": "Alquiler de canchas para torneos de fútbol, cumpleaños y eventos empresariales.",
+    "telefono_admin": "3001234567"
+  },
+  "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e": {
+    "nombre": "Pádel Club 127 (Empresa B)",
+    "parqueadero": "Bahía de parqueo privada con servicio de valet parking.",
+    "calzado": "Zapatillas reglamentarias para pádel con suela espiga (clay) o omni para evitar resbalones en alfombra de cristal.",
+    "servicios": "Alquiler de palas de pádel ($15.000 por pala), pelotas Bullpadel, cafetería bar gourmet, vestieres con duchas y toallas.",
+    "eventos": "Torneos americanos de pádel los fines de semana y clases personalizadas.",
+    "telefono_admin": "3109998877"
+  }
+}

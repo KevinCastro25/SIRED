@@ -1,5 +1,17 @@
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 import { Complejo } from './bookingService.js';
+
+export interface ComplejoKnowledge {
+  nombre?: string;
+  parqueadero?: string;
+  calzado?: string;
+  servicios?: string;
+  eventos?: string;
+  telefono_admin?: string;
+  informacion_libre?: string;
+}
 
 export interface ReceptionistResponse {
   esPreguntaOAtencion: boolean;
@@ -133,25 +145,71 @@ export class AIReceptionistService {
   }
 
   /**
-   * Consulta a Google Gemini Flash con el contexto del complejo deportivo
+   * Obtiene la base de conocimiento específica y personalizada de este complejo
+   */
+  static getConocimientoComplejo(complejo: Complejo): ComplejoKnowledge {
+    try {
+      const filePath = path.resolve(process.cwd(), 'data', 'complejos_faq.json');
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const data = JSON.parse(raw);
+        if (data[complejo.id]) return data[complejo.id];
+        if (complejo.slug && data[complejo.slug]) return data[complejo.slug];
+      }
+    } catch (e) {
+      // Ignorar fallback
+    }
+
+    return {
+      nombre: complejo.nombre,
+      parqueadero: 'Parqueadero privado y vigilado gratuito para clientes (carros y motos).',
+      calzado: 'Calzado deportivo reglamentario para el tipo de superficie. No se permiten taches de aluminio.',
+      servicios: 'Vestieres, baños y duchas con agua caliente, cafetería con hidratación y snacks, y alquiler de petos y balones.',
+      eventos: 'Organización de torneos y reserva de franjas horarias para eventos.',
+      telefono_admin: complejo.telefono_whatsapp,
+    };
+  }
+
+  /**
+   * Guarda o actualiza la base de conocimiento de un complejo específico
+   */
+  static guardarConocimientoComplejo(complejoId: string, knowledge: ComplejoKnowledge): void {
+    try {
+      const dataDir = path.resolve(process.cwd(), 'data');
+      if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+      const filePath = path.join(dataDir, 'complejos_faq.json');
+      let data: Record<string, ComplejoKnowledge> = {};
+      if (fs.existsSync(filePath)) {
+        data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      }
+      data[complejoId] = { ...data[complejoId], ...knowledge };
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('Error guardando conocimiento del complejo:', e);
+    }
+  }
+
+  /**
+   * Consulta a Google Gemini Flash con el contexto específico del complejo deportivo
    */
   private static async consultarGemini(pregunta: string, complejo: Complejo, apiKey: string): Promise<string | null> {
     const apertura = complejo.hora_apertura ? complejo.hora_apertura.slice(0, 5) : '07:00';
     const cierre = complejo.hora_cierre ? complejo.hora_cierre.slice(0, 5) : '23:00';
     const direccion = complejo.direccion || 'Sede principal';
     const ciudad = complejo.ciudad || 'Colombia';
+    const info = this.getConocimientoComplejo(complejo);
 
     const prompt = `Eres el asistente virtual amable, cordial y profesional del complejo deportivo "${complejo.nombre}" en ${ciudad}, Colombia.
 Responde de forma clara, concisa (máximo 2 a 3 oraciones) a la siguiente pregunta del cliente por WhatsApp:
 
-DATOS DEL COMPLEJO:
+DATOS Y REGLAS EXCLUSIVAS DE ESTE COMPLEJO:
 - Nombre: ${complejo.nombre}
 - Ubicación: ${direccion}, ${ciudad}
 - Horarios de atención: de ${apertura} a ${cierre}
-- Parqueadero: Parqueadero vigilado privado gratuito para clientes (carros y motos).
-- Calzado reglamentario: Permitido torretín (suela de goma) o tenis deportivos para césped sintético. NO se permiten guayos de taches de aluminio/metal.
-- Comodidades: Vestieres, baños y duchas con agua caliente.
-- Cafetería y tienda deportiva: Venta de bebidas hidratantes, snacks y préstamo/alquiler de petos y balones oficiales.
+- Parqueadero: ${info.parqueadero}
+- Calzado permitido: ${info.calzado}
+- Servicios e implementos: ${info.servicios}
+- Torneos y eventos: ${info.eventos || 'Disponibilidad de canchas para torneos y eventos previa coordinación.'}
 - Reservas: 100% automáticas las 24 horas a través de este mismo WhatsApp.
 
 PREGUNTA DEL CLIENTE:
@@ -159,6 +217,7 @@ PREGUNTA DEL CLIENTE:
 
 INSTRUCCIONES:
 - Responde con tono colombiano amable, respetuoso y profesional.
+- Basado estrictamente en las reglas exclusivas de este complejo.
 - Termina siempre invitando cordialmente a reservar con: "Escribe *HOLA* o *MENU* para ver las canchas y turnos disponibles ⚽🎾".`;
 
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
@@ -176,33 +235,34 @@ INSTRUCCIONES:
   }
 
   /**
-   * Respuestas estructuradas directas si no hay API Key de Gemini
+   * Respuestas estructuradas directas usando la ficha exclusiva de cada complejo
    */
   private static generarRespuestaPorReglas(t: string, complejo: Complejo): string {
     const pie = `\n\n¿Deseas reservar tu turno? Escribe *HOLA* o *MENU* para ver canchas y horarios ⚽🎾.`;
+    const info = this.getConocimientoComplejo(complejo);
 
     if (t.includes('parqueadero') || t.includes('estacionamiento') || t.includes('carro') || t.includes('moto')) {
-      return `🚗 *Parqueadero en ${complejo.nombre}:*\nSí, contamos con parqueadero privado y vigilado para autos y motos, totalmente gratuito para todos los jugadores y acompañantes.` + pie;
+      return `🚗 *Parqueadero en ${complejo.nombre}:*\n${info.parqueadero}` + pie;
     }
 
     if (t.includes('guayo') || t.includes('tache') || t.includes('calzado') || t.includes('zapato')) {
-      return `👟 *Calzado permitido en ${complejo.nombre}:*\nPuedes jugar con tenis deportivos o guayos torretín (suela de goma para sintética). Por seguridad y cuidado de la grama, *no se permiten taches de aluminio o metálicos*.` + pie;
+      return `👟 *Calzado permitido en ${complejo.nombre}:*\n${info.calzado}` + pie;
     }
 
     if (t.includes('ducha') || t.includes('vestier') || t.includes('baño') || t.includes('banos')) {
-      return `🚿 *Servicios en ${complejo.nombre}:*\nDisponemos de vestieres amplios, baños limpios y duchas con agua caliente para que te cambies cómodamente después de tu partido.` + pie;
+      return `🚿 *Servicios e Instalaciones en ${complejo.nombre}:*\n${info.servicios}` + pie;
     }
 
     if (t.includes('donde') || t.includes('ubicacion') || t.includes('direccion') || t.includes('llegar') || t.includes('queda')) {
       return `📍 *Ubicación de ${complejo.nombre}:*\nNos encontramos en *${complejo.direccion}*, ${complejo.ciudad}. ¡Te esperamos!` + pie;
     }
 
-    if (t.includes('bebida') || t.includes('hidratacion') || t.includes('comida') || t.includes('cafeteria') || t.includes('peto') || t.includes('balon')) {
-      return `🥤 *Cafetería e Implementos:*\nContamos con zona de hidratación (bebidas isotónicas, agua, cerveza), snacks y disponemos de balones oficiales y petos para diferenciar equipos.` + pie;
+    if (t.includes('bebida') || t.includes('hidratacion') || t.includes('comida') || t.includes('cafeteria') || t.includes('peto') || t.includes('balon') || t.includes('pala') || t.includes('raqueta')) {
+      return `🥤 *Servicios e Implementos en ${complejo.nombre}:*\n${info.servicios}` + pie;
     }
 
     if (t.includes('torneo') || t.includes('cumpleaños') || t.includes('evento')) {
-      return `🏆 *Eventos y Torneos en ${complejo.nombre}:*\n¡Claro que sí! Organizamos torneos empresariales y prestamos las canchas para cumpleaños y eventos deportivos con franjas horarias completas. Un asesor te contactará para coordinar la logística.` + pie;
+      return `🏆 *Eventos y Torneos en ${complejo.nombre}:*\n${info.eventos || 'Organizamos torneos y reservamos franjas horarias completas para eventos deportivos.'}` + pie;
     }
 
     const apertura = complejo.hora_apertura ? complejo.hora_apertura.slice(0, 5) : '07:00';
