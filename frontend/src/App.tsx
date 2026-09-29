@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarView } from './components/CalendarView.tsx';
 import { MetricCards } from './components/MetricCards.tsx';
@@ -26,12 +26,7 @@ export function App() {
   const [complejoActualId, setComplejoActualId] = useState<string>('');
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [reservas, setReservas] = useState<Reserva[]>([]);
-  const [metricas, setMetricas] = useState<Metricas>({
-    total_reservas: 0,
-    reservas_confirmadas: 0,
-    ingresos_estimados: 0,
-    anticipos_recaudados: 0,
-  });
+  const [periodoMetricas, setPeriodoMetricas] = useState<'hoy' | 'semana' | 'mes'>('semana');
 
   // Estado de Autenticación y Control de Roles
   const [usuarioActual, setUsuarioActual] = useState<PerfilUsuario | null>(() => {
@@ -80,10 +75,9 @@ export function App() {
     const queryParam = targetComplejoId ? `?complejo_id=${targetComplejoId}` : '';
 
     try {
-      const [resCanchas, resReservas, resMetricas] = await Promise.all([
+      const [resCanchas, resReservas] = await Promise.all([
         fetch(`/api/canchas${queryParam}`),
         fetch(`/api/reservas${queryParam}`),
-        fetch(`/api/metricas${queryParam}`),
       ]);
 
       if (resCanchas.ok) {
@@ -94,16 +88,6 @@ export function App() {
       if (resReservas.ok) {
         const dataReservas = await resReservas.json();
         setReservas(dataReservas || []);
-      }
-
-      if (resMetricas.ok) {
-        const dataMetricas = await resMetricas.json();
-        setMetricas(dataMetricas || {
-          total_reservas: 0,
-          reservas_confirmadas: 0,
-          ingresos_estimados: 0,
-          anticipos_recaudados: 0,
-        });
       }
     } catch (err) {
       console.error('Error sincronizando con la base de datos:', err);
@@ -148,6 +132,66 @@ export function App() {
       supabase.removeChannel(canal);
     };
   }, [complejoActualId]);
+
+  // Métricas calculadas dinámicamente según el período seleccionado (hoy, semana, mes)
+  const metricasFiltradas = useMemo<Metricas>(() => {
+    const ahora = new Date();
+    const ahoraCol = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Bogota' }));
+    const anio = ahoraCol.getFullYear();
+    const mes = ahoraCol.getMonth();
+
+    const toStr = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    let inicioStr = '';
+    let finStr = '';
+
+    if (periodoMetricas === 'hoy') {
+      const hoy = toStr(ahoraCol);
+      inicioStr = hoy;
+      finStr = hoy;
+    } else if (periodoMetricas === 'semana') {
+      const diaSemana = ahoraCol.getDay();
+      const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+      const lunes = new Date(ahoraCol);
+      lunes.setDate(ahoraCol.getDate() + diffLunes);
+      const domingo = new Date(lunes);
+      domingo.setDate(lunes.getDate() + 6);
+      inicioStr = toStr(lunes);
+      finStr = toStr(domingo);
+    } else {
+      const primerDia = new Date(anio, mes, 1);
+      const ultimoDia = new Date(anio, mes + 1, 0);
+      inicioStr = toStr(primerDia);
+      finStr = toStr(ultimoDia);
+    }
+
+    const filtradas = reservas.filter((r) => {
+      const fecha = r.fecha_inicio.split('T')[0];
+      return fecha >= inicioStr && fecha <= finStr && r.estado !== 'cancelada';
+    });
+
+    const confirmadas = filtradas.filter(
+      (r) => r.estado === 'confirmada' || r.estado === 'completada'
+    );
+
+    const ingresos = confirmadas.reduce((sum, r) => sum + Number(r.valor_total || 0), 0);
+    const anticipos = confirmadas.reduce(
+      (sum, r) => sum + Number(r.valor_anticipo_requerido || 0),
+      0
+    );
+
+    return {
+      total_reservas: filtradas.length,
+      reservas_confirmadas: confirmadas.length,
+      ingresos_estimados: ingresos,
+      anticipos_recaudados: anticipos,
+    };
+  }, [reservas, periodoMetricas]);
 
   const handleSeleccionarTurno = (
     cancha: Cancha,
@@ -381,13 +425,14 @@ export function App() {
               transition={{ duration: 0.15 }}
               className="space-y-6"
             >
-              <MetricCards metricas={metricas} />
+              <MetricCards metricas={metricasFiltradas} periodo={periodoMetricas} />
 
               <AnalyticsCharts
                 canchas={canchas}
                 reservas={reservas}
-                metricas={metricas}
                 nombreComplejo={complejoActivo?.nombre || 'Complejo Deportivo'}
+                periodo={periodoMetricas}
+                onPeriodoChange={setPeriodoMetricas}
               />
             </motion.div>
           )}

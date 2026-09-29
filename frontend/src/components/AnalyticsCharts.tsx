@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Cancha, Reserva, Metricas } from '../types.ts';
+import { Cancha, Reserva } from '../types.ts';
 import {
   IconChartBar,
   IconTrendingUp,
@@ -13,12 +13,65 @@ import {
 interface Props {
   canchas: Cancha[];
   reservas: Reserva[];
-  metricas: Metricas;
   nombreComplejo: string;
+  periodo?: 'hoy' | 'semana' | 'mes';
+  onPeriodoChange?: (p: 'hoy' | 'semana' | 'mes') => void;
 }
 
-export const AnalyticsCharts: React.FC<Props> = ({ canchas, reservas, metricas, nombreComplejo }) => {
-  const [periodo, setPeriodo] = useState<'hoy' | 'semana' | 'mes'>('semana');
+export const AnalyticsCharts: React.FC<Props> = ({
+  canchas,
+  reservas,
+  nombreComplejo,
+  periodo: periodoProp,
+  onPeriodoChange,
+}) => {
+  const [periodoLocal, setPeriodoLocal] = useState<'hoy' | 'semana' | 'mes'>('semana');
+  const periodo = periodoProp || periodoLocal;
+  const setPeriodo = (p: 'hoy' | 'semana' | 'mes') => {
+    setPeriodoLocal(p);
+    if (onPeriodoChange) onPeriodoChange(p);
+  };
+
+  // Filtrar reservas según el período seleccionado (hoy, semana, mes)
+  const ahora = new Date();
+  const ahoraCol = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Bogota' }));
+  const anio = ahoraCol.getFullYear();
+  const mes = ahoraCol.getMonth();
+
+  const toStr = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  let inicioStr = '';
+  let finStr = '';
+
+  if (periodo === 'hoy') {
+    const hoy = toStr(ahoraCol);
+    inicioStr = hoy;
+    finStr = hoy;
+  } else if (periodo === 'semana') {
+    const diaSemana = ahoraCol.getDay();
+    const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+    const lunes = new Date(ahoraCol);
+    lunes.setDate(ahoraCol.getDate() + diffLunes);
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+    inicioStr = toStr(lunes);
+    finStr = toStr(domingo);
+  } else {
+    const primerDia = new Date(anio, mes, 1);
+    const ultimoDia = new Date(anio, mes + 1, 0);
+    inicioStr = toStr(primerDia);
+    finStr = toStr(ultimoDia);
+  }
+
+  const reservasFiltradas = reservas.filter((r) => {
+    const fecha = r.fecha_inicio.split('T')[0];
+    return fecha >= inicioStr && fecha <= finStr;
+  });
 
   // 1. Calcular ocupación por franja horaria (07:00 a 22:00)
   const franjas = [
@@ -40,30 +93,32 @@ export const AnalyticsCharts: React.FC<Props> = ({ canchas, reservas, metricas, 
     { hora: '22:00', etiqueta: '10pm', esPico: true },
   ];
 
-  // Conteo de reservas por hora
+  // Conteo de reservas por hora en el período filtrado
+  const factorDias = periodo === 'hoy' ? 1 : periodo === 'semana' ? 7 : 30;
   const ocupacionPorHora = franjas.map((f) => {
-    const totalReservasEnHora = reservas.filter((r) => {
+    const totalReservasEnHora = reservasFiltradas.filter((r) => {
       if (r.estado === 'cancelada') return false;
       const horaInicio = r.fecha_inicio.split('T')[1]?.slice(0, 5);
       return horaInicio === f.hora;
     }).length;
 
-    // Capacidad máxima de la hora = número de canchas del complejo
-    const capacidadMax = canchas.length || 1;
+    // Capacidad máxima de la hora = número de canchas del complejo * días del período
+    const capacidadMax = Math.max((canchas.length || 1) * factorDias, 1);
     const porcentaje = Math.min(100, Math.round((totalReservasEnHora / capacidadMax) * 100));
 
     return {
       ...f,
       reservas: totalReservasEnHora,
-      porcentaje: Math.max(porcentaje, totalReservasEnHora > 0 ? 30 : 5), // Altura mínima visual
+      porcentaje: Math.max(porcentaje, totalReservasEnHora > 0 ? 25 : 5),
     };
   });
 
-  // 2. Calcular rendimiento financiero y de turnos por cancha
+  // 2. Calcular rendimiento financiero y de turnos por cancha en el período filtrado
   const rendimientoCanchas = canchas.map((c) => {
-    const reservasCancha = reservas.filter((r) => r.cancha_id === c.id && r.estado !== 'cancelada');
-    const ingresosCancha = reservasCancha.reduce((sum, r) => sum + Number(r.valor_total || 0), 0);
-    const anticiposCancha = reservasCancha.reduce((sum, r) => sum + Number(r.valor_anticipo_requerido || 0), 0);
+    const reservasCancha = reservasFiltradas.filter((r) => r.cancha_id === c.id && r.estado !== 'cancelada');
+    const confirmadas = reservasCancha.filter((r) => r.estado === 'confirmada' || r.estado === 'completada');
+    const ingresosCancha = confirmadas.reduce((sum, r) => sum + Number(r.valor_total || 0), 0);
+    const anticiposCancha = confirmadas.reduce((sum, r) => sum + Number(r.valor_anticipo_requerido || 0), 0);
 
     return {
       id: c.id,
@@ -77,14 +132,10 @@ export const AnalyticsCharts: React.FC<Props> = ({ canchas, reservas, metricas, 
 
   const maxIngresos = Math.max(...rendimientoCanchas.map((c) => c.ingresos), 1);
 
-  // Tasa de ocupación global promedio
-  const tasaOcupacionGlobal =
-    canchas.length > 0
-      ? Math.min(
-          100,
-          Math.round((metricas.reservas_confirmadas / (canchas.length * 10)) * 100)
-        )
-      : 0;
+  // Tasa de ocupación global promedio del período
+  const turnosConfirmados = reservasFiltradas.filter((r) => r.estado === 'confirmada' || r.estado === 'completada').length;
+  const capacidadTotalPeriodo = (canchas.length || 1) * 15 * factorDias;
+  const tasaOcupacionGlobal = Math.min(100, Math.round((turnosConfirmados / capacidadTotalPeriodo) * 100));
 
   return (
     <div className="mb-6 space-y-4">

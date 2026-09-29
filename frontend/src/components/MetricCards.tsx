@@ -12,11 +12,19 @@ import { Metricas } from '../types.ts';
 
 interface Props {
   metricas: Metricas;
+  periodo?: 'hoy' | 'semana' | 'mes';
 }
 
-export const MetricCards: React.FC<Props> = ({ metricas }) => {
+export const MetricCards: React.FC<Props> = ({ metricas, periodo = 'semana' }) => {
   const formatPesos = (val: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
+
+  const etiquetaPeriodo =
+    periodo === 'hoy'
+      ? 'Hoy'
+      : periodo === 'mes'
+      ? 'Este Mes'
+      : 'Esta Semana';
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -27,9 +35,14 @@ export const MetricCards: React.FC<Props> = ({ metricas }) => {
         className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm"
       >
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-            Ingresos Estimados
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Ingresos Estimados
+            </span>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+              {etiquetaPeriodo}
+            </span>
+          </div>
           <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700">
             <IconCoin className="w-5 h-5" />
           </div>
@@ -39,7 +52,7 @@ export const MetricCards: React.FC<Props> = ({ metricas }) => {
             {formatPesos(metricas.ingresos_estimados)}
           </h3>
           <p className="text-[11px] text-emerald-700 flex items-center gap-1 font-medium">
-            <IconArrowUpRight className="w-3.5 h-3.5" /> Turnos agendados
+            <IconArrowUpRight className="w-3.5 h-3.5" /> Turnos agendados ({etiquetaPeriodo.toLowerCase()})
           </p>
         </div>
       </motion.div>
@@ -51,9 +64,14 @@ export const MetricCards: React.FC<Props> = ({ metricas }) => {
         className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm"
       >
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-            Anticipos Recaudados
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Anticipos Recaudados
+            </span>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200">
+              {etiquetaPeriodo}
+            </span>
+          </div>
           <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-700">
             <IconShieldCheck className="w-5 h-5" />
           </div>
@@ -63,7 +81,7 @@ export const MetricCards: React.FC<Props> = ({ metricas }) => {
             {formatPesos(metricas.anticipos_recaudados)}
           </h3>
           <p className="text-[11px] text-slate-500 flex items-center gap-1 font-medium">
-            <IconBolt className="w-3.5 h-3.5 text-sky-600" /> Nequi / Daviplata
+            <IconBolt className="w-3.5 h-3.5 text-sky-600" /> Nequi / Daviplata ({etiquetaPeriodo.toLowerCase()})
           </p>
         </div>
       </motion.div>
@@ -75,9 +93,14 @@ export const MetricCards: React.FC<Props> = ({ metricas }) => {
         className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm"
       >
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-            Partidos Agendados
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Partidos Agendados
+            </span>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200">
+              {etiquetaPeriodo}
+            </span>
+          </div>
           <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700">
             <IconCalendarEvent className="w-5 h-5" />
           </div>
@@ -87,7 +110,7 @@ export const MetricCards: React.FC<Props> = ({ metricas }) => {
             {metricas.reservas_confirmadas} <span className="text-xs font-normal text-slate-500">confirmadas</span>
           </h3>
           <p className="text-[11px] text-slate-500 font-medium">
-            De {metricas.total_reservas} turnos totales
+            De {metricas.total_reservas} turnos ({etiquetaPeriodo.toLowerCase()})
           </p>
         </div>
       </motion.div>
