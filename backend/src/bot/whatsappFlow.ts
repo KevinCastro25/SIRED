@@ -57,45 +57,52 @@ export class WhatsAppFlow {
     mediaId?: string,
     mediaType?: string
   ): Promise<BotResponse> {
-    const ahora = Date.now();
-    let session = sesiones.get(telefono);
+    try {
+      const ahora = Date.now();
+      let session = sesiones.get(telefono);
 
-    // Obtener complejo asignado
-    const complejo = complejoDirecto || (await BookingService.getComplejos())[0];
+      // Obtener complejo asignado
+      const complejo = complejoDirecto || (await BookingService.getComplejos())[0];
 
-    if (!session || ahora - session.ultimoMensaje > 30 * 60 * 1000 || session.complejoId !== complejo.id) {
-      session = { paso: 'INICIO', complejoId: complejo.id, ultimoMensaje: ahora };
-      sesiones.set(telefono, session);
-    }
-    session.ultimoMensaje = ahora;
+      if (!session || ahora - session.ultimoMensaje > 30 * 60 * 1000 || session.complejoId !== complejo.id) {
+        session = { paso: 'INICIO', complejoId: complejo.id, ultimoMensaje: ahora };
+        sesiones.set(telefono, session);
+      }
+      session.ultimoMensaje = ahora;
 
-    const input = texto.trim().toLowerCase();
+      const input = texto.trim().toLowerCase();
 
-    if (input === 'reiniciar' || input === 'menu' || input === 'cancelar' || (input === 'hola' && session.paso !== 'INICIO')) {
-      session.paso = 'INICIO';
-    }
-
-    switch (session.paso) {
-      case 'INICIO':
-        return await this.manejarInicio(telefono, session, complejo, nombrePush);
-
-      case 'SELECCION_CANCHA':
-        return await this.manejarSeleccionCancha(input, session);
-
-      case 'SELECCION_FECHA':
-        return await this.manejarSeleccionFecha(input, session);
-
-      case 'SELECCION_HORA':
-        return await this.manejarSeleccionHora(input, session, telefono, complejo);
-
-      case 'ESPERA_PAGO':
-        return await this.manejarEsperaPago(input, session, complejo, mediaId, mediaType);
-
-      default:
+      if (input === 'reiniciar' || input === 'menu' || input === 'cancelar' || (input === 'hola' && session.paso !== 'INICIO')) {
         session.paso = 'INICIO';
-        return {
-          texto: `¡Hola! Escribe *HOLA* para comenzar tu reserva en *${complejo.nombre}* ⚽🎾.`,
-        };
+      }
+
+      switch (session.paso) {
+        case 'INICIO':
+          return await this.manejarInicio(telefono, session, complejo, nombrePush);
+
+        case 'SELECCION_CANCHA':
+          return await this.manejarSeleccionCancha(input, session);
+
+        case 'SELECCION_FECHA':
+          return await this.manejarSeleccionFecha(input, session);
+
+        case 'SELECCION_HORA':
+          return await this.manejarSeleccionHora(input, session, telefono, complejo);
+
+        case 'ESPERA_PAGO':
+          return await this.manejarEsperaPago(input, session, complejo, mediaId, mediaType);
+
+        default:
+          session.paso = 'INICIO';
+          return {
+            texto: `¡Hola! Escribe *HOLA* para comenzar tu reserva en *${complejo.nombre}* ⚽🎾.`,
+          };
+      }
+    } catch (globalErr: any) {
+      console.error('Error general procesando flujo de WhatsApp:', globalErr);
+      return {
+        texto: '👋 ¡Hola! Ocurrió una pequeña interrupción en nuestro sistema. Por favor escribe *HOLA* o *MENU* para continuar.',
+      };
     }
   }
 
@@ -468,8 +475,10 @@ export class WhatsAppFlow {
 
     const cliente = await BookingService.getOrCreateCliente(telefono);
 
-    const fechaInicioIso = `${session.fechaSeleccionada}T${horario.hora_inicio}:00Z`;
-    const fechaFinIso = `${session.fechaSeleccionada}T${horario.hora_fin}:00Z`;
+    const horaIniNorm = horario.hora_inicio.slice(0, 5);
+    const horaFinNorm = horario.hora_fin.slice(0, 5);
+    const fechaInicioIso = `${session.fechaSeleccionada}T${horaIniNorm}:00Z`;
+    const fechaFinIso = `${session.fechaSeleccionada}T${horaFinNorm}:00Z`;
 
     try {
       const porcentaje = complejo.porcentaje_anticipo_minimo ?? 50;
@@ -497,7 +506,7 @@ export class WhatsAppFlow {
           `🏢 Establecimiento: *${complejo.nombre}*\n` +
           `🏟️ Cancha: *${session.canchaSeleccionada!.nombre}*\n` +
           `📅 Fecha: *${session.fechaSeleccionada}*\n` +
-          `⏰ Horario: *${horario.hora_inicio.slice(0, 5)} - ${horario.hora_fin.slice(0, 5)}*\n` +
+          `⏰ Horario: *${horaIniNorm} - ${horaFinNorm}*\n` +
           `💰 Total: *${totalFmt}*\n` +
           `💵 Anticipo requerido: *${anticipoFmt}* (${porcentaje}%)\n\n` +
           `📲 *Cuentas Oficiales de Recaudo:*\n` +
@@ -508,10 +517,45 @@ export class WhatsAppFlow {
           `🤖 Nuestro sistema con Inteligencia Artificial lo auditará al instante para confirmar tu reserva, o será validado por la administración.`,
       };
     } catch (err: any) {
+      console.error('Error al apartar turno en reserva:', err);
       return {
-        texto: `❌ ${err.message || 'Error al apartar el turno'}. Por favor selecciona otro horario o escribe *MENU*.`,
+        texto: this.formatearErrorAmigable(err),
       };
     }
+  }
+
+  private static formatearErrorAmigable(err: any): string {
+    const raw = (err?.message || '').toLowerCase();
+
+    // 1. Conflicto de turno ya reservado por otro usuario
+    if (
+      raw.includes('apartado por otra') ||
+      raw.includes('conflict') ||
+      raw.includes('23p01') ||
+      raw.includes('solapad') ||
+      raw.includes('no_doble_reserva')
+    ) {
+      return (
+        '⚠️ *¡Horario no disponible!*\n\n' +
+        'Este turno acaba de ser apartado por otra persona hace un momento.\n' +
+        'Por favor selecciona otro horario disponible o escribe *MENU* para volver a empezar.'
+      );
+    }
+
+    // 2. Mantenimiento o cancha bloqueada
+    if (raw.includes('bloquead') || raw.includes('mantenimiento') || raw.includes('inactiva')) {
+      return (
+        '⚠️ *Horario no disponible*\n\n' +
+        'Esta cancha se encuentra temporalmente fuera de servicio en ese rango horario.\n' +
+        'Por favor selecciona otro horario o escribe *MENU*.'
+      );
+    }
+
+    // 3. Fallo genérico / base de datos / sintaxis
+    return (
+      '⚠️ *No pudimos apartar el turno en este momento*\n\n' +
+      'Por favor intenta seleccionar otro horario o escribe *MENU* para volver al inicio.'
+    );
   }
 
   private static async manejarEsperaPago(
