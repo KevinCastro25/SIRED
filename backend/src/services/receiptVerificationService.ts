@@ -106,31 +106,57 @@ RESPONDE EXCLUSIVAMENTE EN FORMATO JSON VÁLIDO CON ESTA ESTRUCTURA EXACTA:
   "confianza": "ALTA" | "MEDIA" | "BAJA"
 }`;
 
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      // Lista de modelos ordenados por modernidad y precisión en visión (todos con capa gratuita en Google AI Studio)
+      const modelosDisponibles = [
+        process.env.GEMINI_MODEL,
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+      ].filter(Boolean) as string[];
 
-      const response = await axios.post(
-        endpoint,
-        {
-          contents: [
+      let response: any = null;
+      let ultimoError: any = null;
+
+      for (const modelo of modelosDisponibles) {
+        try {
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
+          response = await axios.post(
+            endpoint,
             {
-              parts: [
-                { text: prompt },
+              contents: [
                 {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: base64Data,
-                  },
+                  parts: [
+                    { text: prompt },
+                    {
+                      inline_data: {
+                        mime_type: mimeType,
+                        data: base64Data,
+                      },
+                    },
+                  ],
                 },
               ],
+              generationConfig: {
+                temperature: 0.1,
+                response_mime_type: 'application/json',
+              },
             },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            response_mime_type: 'application/json',
-          },
-        },
-        { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
-      );
+            { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+          );
+
+          if (response?.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+            console.log(`✅ Comprobante auditado con éxito usando modelo: ${modelo}`);
+            break;
+          }
+        } catch (e: any) {
+          ultimoError = e;
+          console.warn(`Aviso: Intento con ${modelo} no disponible (${e.response?.status || e.message}), probando siguiente modelo...`);
+        }
+      }
+
+      if (!response) {
+        throw ultimoError || new Error('No se pudo procesar el comprobante con los modelos de Gemini disponibles');
+      }
 
       const rawText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!rawText) {
