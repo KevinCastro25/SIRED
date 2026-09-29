@@ -24,7 +24,7 @@ Esta guía te explica cómo poner todo el sistema en producción accesible desde
 4. Selecciona tu repositorio de GitHub.
 5. Configura los siguientes campos:
    - **Name:** `reservas-deportivas-api`
-   - **Root Directory:** `desarrollo/backend`
+   - **Root Directory:** `backend`
    - **Environment:** `Node`
    - **Build Command:** `npm install && npm run build`
    - **Start Command:** `npm start`
@@ -62,7 +62,7 @@ Esta guía te explica cómo poner todo el sistema en producción accesible desde
 2. Haz clic en **"Add New..."** > **"Project"**.
 3. Importa tu repositorio de GitHub.
 4. En **Root Directory**, haz clic en *Edit* y selecciona:
-   `desarrollo/frontend`
+   `frontend`
 5. En **Framework Preset**, Vercel detectará automáticamente **Vite**.
 6. Haz clic en **"Deploy"**.
 7. En menos de 1 minuto tendrás tu dominio activo:
