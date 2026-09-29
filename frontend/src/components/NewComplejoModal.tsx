@@ -156,7 +156,7 @@ export const NewComplejoModal: React.FC<Props> = ({ isOpen, onClose, onComplejoC
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-emerald-600 font-mono"
               />
               <p className="text-[10px] text-emerald-700 font-mono mt-1 truncate">
-                sired.vercel.app/{slug || 'mi-negocio'}
+                {typeof window !== 'undefined' ? window.location.host : 'sired1.vercel.app'}/{slug || 'mi-negocio'}
               </p>
             </div>
             <div>
