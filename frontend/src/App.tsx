@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarView } from './components/CalendarView.tsx';
+import { OrdersDashboard } from './components/OrdersDashboard.tsx';
 import { MetricCards } from './components/MetricCards.tsx';
 import { AnalyticsCharts } from './components/AnalyticsCharts.tsx';
 import { NewBookingModal } from './components/NewBookingModal.tsx';
@@ -333,13 +334,19 @@ export function App() {
       recursos: 'Especialistas y Mesas',
       vacio: 'No hay especialistas o puestos de atención registrados para este salón.',
     },
+    pedidos: {
+      badge: '🍧 Granizados & Pedidos',
+      badgeColor: 'bg-amber-50 text-amber-900 border-amber-200',
+      recursos: 'Línea de Despacho Domicilios',
+      vacio: 'No hay pedidos registrados en este momento.',
+    },
     salud: {
       badge: '🩺 Consultorio',
       badgeColor: 'bg-teal-50 text-teal-800 border-teal-200',
       recursos: 'Consultorios y Especialistas',
       vacio: 'No hay consultorios registrados para este centro de salud.',
     },
-  }[rubro as 'deportes' | 'barberia' | 'belleza_unas' | 'salud'] || {
+  }[rubro as 'deportes' | 'barberia' | 'belleza_unas' | 'salud' | 'pedidos'] || {
     badge: '🏢 Negocio',
     badgeColor: 'bg-slate-50 text-slate-800 border-slate-200',
     recursos: 'Recursos / Puestos',
@@ -561,7 +568,19 @@ export function App() {
                 </div>
               </div>
 
-              {canchas.length > 0 ? (
+              {complejoActivo?.tipo_negocio === 'pedidos' ? (
+                <OrdersDashboard
+                  complejo={complejoActivo}
+                  reservas={reservas}
+                  onActualizarReserva={async (reservaId, updates) => {
+                    const { error } = await supabase.from('reservas').update(updates).eq('id', reservaId);
+                    if (!error) {
+                      setReservas((prev) => prev.map((r) => (r.id === reservaId ? { ...r, ...updates } : r)));
+                    }
+                  }}
+                  onRecargar={() => cargarDatos()}
+                />
+              ) : canchas.length > 0 ? (
                 <CalendarView
                   canchas={canchas}
                   reservas={reservas}

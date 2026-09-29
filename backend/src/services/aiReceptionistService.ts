@@ -202,7 +202,10 @@ export class AIReceptionistService {
     let entidad = 'del establecimiento deportivo';
     let invitacionFinal = 'Escribe *HOLA* o *MENU* para ver las canchas y turnos disponibles ⚽🎾.';
 
-    if (tipo === 'barberia') {
+    if (tipo === 'pedidos' || complejo.slug === 'graniza2kl') {
+      entidad = 'del negocio de granizados artesanales 100% a domicilio';
+      invitacionFinal = 'Escribe los granizados que deseas y tu dirección para enviarte el domicilio 🍧🛵.';
+    } else if (tipo === 'barberia') {
       entidad = 'de la barbería';
       invitacionFinal = 'Escribe *HOLA* o *MENU* para ver los barberos y turnos disponibles 💈✂️.';
     } else if (tipo === 'belleza_unas') {
@@ -220,11 +223,11 @@ DATOS Y REGLAS EXCLUSIVAS DE ESTE NEGOCIO:
 - Nombre: ${complejo.nombre}
 - Ubicación: ${direccion}, ${ciudad}
 - Horarios de atención: de ${apertura} a ${cierre}
-- Parqueadero: ${info.parqueadero}
+- Parqueadero/Entrega: ${info.parqueadero}
 - Vestimenta/Calzado: ${info.calzado}
 - Servicios ofrecidos: ${info.servicios}
 - Eventos o planes especiales: ${info.eventos || 'Disponibilidad sujeta a previa reserva.'}
-- Reservas: 100% automáticas las 24 horas a través de este mismo WhatsApp.
+- Reservas/Pedidos: 100% automáticos las 24 horas a través de este mismo WhatsApp.
 
 PREGUNTA DEL CLIENTE:
 "${pregunta}"
@@ -232,7 +235,8 @@ PREGUNTA DEL CLIENTE:
 INSTRUCCIONES:
 - Responde con tono colombiano amable, respetuoso y profesional.
 - Basado estrictamente en las reglas exclusivas de este negocio.
-- Termina siempre invitando cordialmente a reservar con: "${invitacionFinal}"`;
+- Recuerda que para Graniza2KL el servicio es 100% EXCLUSIVO A DOMICILIO, no hay atención en local ni recogida.
+- Termina siempre invitando cordialmente a reservar o pedir con: "${invitacionFinal}"`;
 
     const modelosDisponibles = [
       process.env.GEMINI_MODEL,
@@ -276,7 +280,10 @@ INSTRUCCIONES:
     let pie = `\n\n¿Deseas reservar tu turno? Escribe *HOLA* o *MENU* para ver canchas y horarios ⚽🎾.`;
     let labelEventos = `🏆 *Eventos y Torneos en ${complejo.nombre}:*\n`;
 
-    if (tipo === 'barberia') {
+    if (tipo === 'pedidos' || complejo.slug === 'graniza2kl') {
+      pie = `\n\n¿Deseas pedir tu granizado a domicilio? Escribe tu pedido y dirección de entrega 🍧🛵.`;
+      labelEventos = `🍧 *Eventos y Pedidos Especiales en ${complejo.nombre}:*\n`;
+    } else if (tipo === 'barberia') {
       pie = `\n\n¿Deseas agendar tu cita? Escribe *HOLA* o *MENU* para ver barberos y horarios 💈✂️.`;
       labelEventos = `💈 *Servicios y Planes en ${complejo.nombre}:*\n`;
     } else if (tipo === 'belleza_unas') {

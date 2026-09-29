@@ -35,6 +35,8 @@ export const LoginScreen: React.FC<Props> = ({
 
   const getRubroInfo = (tipo?: string) => {
     switch (tipo) {
+      case 'pedidos':
+        return { icon: '🍧', label: 'Granizados & Pedidos Domicilio', color: 'bg-amber-50 text-amber-900 border-amber-200' };
       case 'barberia':
         return { icon: '💈', label: 'Barbería / Peluquería', color: 'bg-blue-50 text-blue-800 border-blue-200' };
       case 'belleza_unas':

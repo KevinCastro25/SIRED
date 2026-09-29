@@ -31,7 +31,7 @@ export interface BotResponse {
 }
 
 interface UserSession {
-  paso: 'INICIO' | 'SELECCION_CANCHA' | 'SELECCION_FECHA' | 'SELECCION_HORA' | 'CONFIRMACION' | 'ESPERA_PAGO';
+  paso: 'INICIO' | 'SELECCION_CANCHA' | 'SELECCION_FECHA' | 'SELECCION_HORA' | 'CONFIRMACION' | 'ESPERA_PAGO' | 'PEDIDO_ESPERA_DIRECCION';
   complejoId?: string;
   canchasDisponibles?: Cancha[];
   canchaSeleccionada?: Cancha;
@@ -41,6 +41,12 @@ interface UserSession {
   reservaId?: string;
   nombreCliente?: string;
   ultimoMensaje: number;
+  pedidoInfo?: {
+    detalle: string;
+    total: number;
+    direccion?: string;
+    items?: string[];
+  };
 }
 
 const sesiones: Map<string, UserSession> = new Map();
@@ -73,7 +79,7 @@ export class WhatsAppFlow {
 
       const input = texto.trim().toLowerCase();
 
-      if (input === 'reiniciar' || input === 'menu' || input === 'cancelar' || (input === 'hola' && session.paso !== 'INICIO')) {
+      if (input === 'reiniciar' || input === 'menu' || input === 'cancelar' || (input === 'hola' && session.paso !== 'INICIO' && session.paso !== 'ESPERA_PAGO')) {
         session.paso = 'INICIO';
       }
 
@@ -85,9 +91,15 @@ export class WhatsAppFlow {
         }
       }
 
+      // 1. FLUJO ESPECIAL PARA NEGOCIOS DE PEDIDOS Y DOMICILIOS (GRANIZA2KL)
+      if (complejo.tipo_negocio === 'pedidos' || complejo.slug === 'graniza2kl') {
+        return await this.manejarFlujoPedidos(telefono, texto, input, session, complejo, nombrePush, mediaId, mediaType);
+      }
+
+      // 2. FLUJO DE RESERVAS Y CITAS (DEPORTES, BARBERÍA, SPA)
       switch (session.paso) {
         case 'INICIO':
-          return await this.manejarInicio(telefono, session, complejo, nombrePush);
+          return await this.manejarInicio(telefono, session, complejo, nombrePush, texto);
 
         case 'SELECCION_CANCHA':
           return await this.manejarSeleccionCancha(input, session);
@@ -119,7 +131,8 @@ export class WhatsAppFlow {
     telefono: string,
     session: UserSession,
     complejo: Complejo,
-    nombrePush?: string
+    nombrePush?: string,
+    textoMensaje?: string
   ): Promise<BotResponse> {
     await BookingService.getOrCreateCliente(telefono, nombrePush);
 
@@ -134,21 +147,48 @@ export class WhatsAppFlow {
       };
     }
 
+    // COMPRENSIÓN DE CONTEXTO INICIAL: Si el cliente escribió directamente lo que busca
+    // Ejemplos: "Hola quiero padel hoy a las 7pm", "Cita con Camilo mañana a las 3"
+    if (textoMensaje && textoMensaje.trim().length > 3) {
+      const inputLimpio = textoMensaje.trim().toLowerCase();
+      const esSoloSaludo = ['hola', 'buenas', 'buen dia', 'buenos dias', 'buenas tardes', 'menu', 'reiniciar'].includes(inputLimpio);
+
+      if (!esSoloSaludo) {
+        const contexto = this.extraerContextoReserva(textoMensaje, canchas);
+        if (contexto.cancha) {
+          session.canchaSeleccionada = contexto.cancha;
+          if (contexto.fecha) {
+            session.fechaSeleccionada = contexto.fecha;
+            session.paso = 'SELECCION_HORA';
+            if (contexto.hora) {
+              const horarios = await BookingService.getHorariosDisponibles(contexto.cancha.id, contexto.fecha);
+              const turnoMatch = horarios.find((h) => h.hora_inicio.startsWith(contexto.hora!) && h.disponible);
+              if (turnoMatch) {
+                return await this.manejarSeleccionHora(turnoMatch.hora_inicio, session, telefono, complejo);
+              }
+            }
+            return await this.manejarSeleccionFecha(contexto.fecha, session);
+          }
+          return await this.manejarSeleccionCancha(`cancha_${contexto.cancha.id}`, session);
+        }
+      }
+    }
+
     const rows: InteractiveRow[] = canchas.slice(0, 10).map((c) => ({
       id: `cancha_${c.id}`,
       title: c.nombre.slice(0, 24),
       description: `${c.deporte.toUpperCase().replace('_', ' ')} • $${c.precio_estandar.toLocaleString('es-CO')}`.slice(0, 72),
     }));
 
-    const texto = `👋 ¡Hola ${nombrePush || ''}! Bienvenido a las reservas 24/7 de *${complejo.nombre}*.\n\n` +
+    const textoRespuesta = `👋 ¡Hola ${nombrePush || ''}! Bienvenido a las reservas 24/7 de *${complejo.nombre}*.\n\n` +
       `Por favor abre el menú desplegable a continuación para seleccionar la cancha en la que deseas jugar ⚽🎾:`;
 
     return {
-      texto,
+      texto: textoRespuesta,
       interactive: {
         type: 'list',
         header: complejo.nombre.slice(0, 60),
-        body: texto,
+        body: textoRespuesta,
         footer: 'Toca abajo para desplegar opciones',
         action: {
           button: 'Elegir Cancha',
@@ -757,6 +797,314 @@ export class WhatsAppFlow {
       texto: `📄 *Datos de pago registrados: "${input}"*\n\n` +
         `Tu comprobante/referencia ha sido enviado al visor de control de *${complejo.nombre}*.\n\n` +
         `⏳ Un administrador lo validará en la cuenta bancaria y recibirás un mensaje de confirmación por este chat en cuanto sea aprobado.`,
+    };
+  }
+
+  /**
+   * Flujo exclusivo para pedidos de comida/bebidas 100% a domicilio (Graniza2KL)
+   */
+  private static async manejarFlujoPedidos(
+    telefono: string,
+    texto: string,
+    input: string,
+    session: UserSession,
+    complejo: Complejo,
+    nombrePush?: string,
+    mediaId?: string,
+    mediaType?: string
+  ): Promise<BotResponse> {
+    const cliente = await BookingService.getOrCreateCliente(telefono, nombrePush);
+
+    // 1. Si está esperando comprobante de pago y envió una imagen
+    if (session.paso === 'ESPERA_PAGO' && mediaId) {
+      const resPago = await this.manejarEsperaPago(input, session, complejo, mediaId, mediaType);
+      if (resPago.texto.includes('¡PAGO AUDITADO') || resPago.texto.includes('APROBADO POR IA')) {
+        const direccion = session.pedidoInfo?.direccion || 'tu dirección';
+        return {
+          texto: `🍧 *¡PAGO VERIFICADO EXITOSAMENTE POR IA!* ✅\n\n` +
+            `¡Muchísimas gracias ${nombrePush || ''}! Tu pago ha sido confirmado con éxito.\n\n` +
+            `Tu pedido ha entrado inmediatamente a preparación en la cocina de *${complejo.nombre}* y te avisaremos en cuanto el repartidor salga hacia tu dirección: *${direccion}* 🛵💨\n\n` +
+            `¡Que disfrutes tus granizados artesanales! 🍧✨`,
+        };
+      }
+      return resPago;
+    }
+
+    // 2. Si el cliente estaba pendiente de ingresar la dirección
+    if (session.paso === 'PEDIDO_ESPERA_DIRECCION' && session.pedidoInfo) {
+      const direccion = texto.trim();
+      session.pedidoInfo.direccion = direccion;
+
+      const canchas = await BookingService.getCanchas(complejo.id);
+      const estacionId = canchas[0]?.id;
+
+      if (!estacionId) {
+        return { texto: '⚠️ Error temporal en la estación de despacho. Por favor intenta en unos minutos.' };
+      }
+
+      const ahoraIso = new Date().toISOString();
+      const finIso = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      const detalleCompleto = `🍧 ${session.pedidoInfo.detalle} 📍 Domicilio: ${direccion} [ESPERANDO_PAGO]`;
+
+      const preOrden = await BookingService.crearPreReserva({
+        canchaId: estacionId,
+        clienteId: cliente.id,
+        fechaInicio: ahoraIso,
+        fechaFin: finIso,
+        valorTotal: session.pedidoInfo.total,
+        porcentajeAnticipo: 100,
+      });
+
+      await supabase.from('reservas').update({ notas: detalleCompleto }).eq('id', preOrden.id);
+      session.reservaId = preOrden.id;
+      session.paso = 'ESPERA_PAGO';
+
+      const totalFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(session.pedidoInfo.total);
+
+      return {
+        texto: `🍧 *¡PEDIDO REGISTRADO EN GRANIZA2KL!* 🛵\n\n` +
+          `📋 *Detalle de tu orden:*\n${session.pedidoInfo.detalle}\n\n` +
+          `📍 *Dirección de Entrega:* ${direccion}\n` +
+          `💰 *Total a Transferir:* ${totalFmt} COP (100% anticipado)\n\n` +
+          `📲 *Datos para Transferencia Inmediata:*\n` +
+          `• Nequi / Daviplata: *${complejo.nequi_numero || '3105551234'}*\n` +
+          `• Titular: *${complejo.titular_cuenta || 'Graniza2KL Artesanales'}*\n\n` +
+          `📸 *Por favor envíanos la foto o captura del comprobante por aquí* para verificar con IA, comenzar a licuar tus granizados y despachar de inmediato 🛵✨`,
+      };
+    }
+
+    // 3. Extracción contextual de pedidos desde el mensaje entrante
+    const pedidoDetectado = this.extraerPedidoGranizados(texto);
+
+    if (pedidoDetectado.esPedido && pedidoDetectado.items.length > 0) {
+      session.pedidoInfo = {
+        detalle: pedidoDetectado.resumen,
+        total: pedidoDetectado.total,
+        direccion: pedidoDetectado.direccion,
+        items: pedidoDetectado.items,
+      };
+
+      // Si el cliente dio los productos Y la dirección en el mismo mensaje inicial
+      if (pedidoDetectado.direccion) {
+        const canchas = await BookingService.getCanchas(complejo.id);
+        const estacionId = canchas[0]?.id;
+
+        if (estacionId) {
+          const ahoraIso = new Date().toISOString();
+          const finIso = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+          const detalleCompleto = `🍧 ${pedidoDetectado.resumen} 📍 Domicilio: ${pedidoDetectado.direccion} [ESPERANDO_PAGO]`;
+
+          const preOrden = await BookingService.crearPreReserva({
+            canchaId: estacionId,
+            clienteId: cliente.id,
+            fechaInicio: ahoraIso,
+            fechaFin: finIso,
+            valorTotal: pedidoDetectado.total,
+            porcentajeAnticipo: 100,
+          });
+
+          await supabase.from('reservas').update({ notas: detalleCompleto }).eq('id', preOrden.id);
+          session.reservaId = preOrden.id;
+          session.paso = 'ESPERA_PAGO';
+
+          const totalFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(pedidoDetectado.total);
+
+          return {
+            texto: `🍧 *¡ORDEN DETECTADA Y REGISTRADA EN GRANIZA2KL!* 🛵\n\n` +
+              `¡Entendido ${nombrePush || ''}! He tomado todos los datos de tu pedido:\n` +
+              `📋 *Productos:* ${pedidoDetectado.resumen}\n` +
+              `📍 *Dirección de Entrega:* ${pedidoDetectado.direccion}\n` +
+              `💰 *Total a Transferir:* ${totalFmt} COP\n\n` +
+              `📲 *Datos para Transferir (Nequi / Daviplata):*\n` +
+              `• Número: *${complejo.nequi_numero || '3105551234'}*\n` +
+              `• Titular: *${complejo.titular_cuenta || 'Graniza2KL'}*\n\n` +
+              `📸 Envíanos la captura de tu comprobante por este chat para verificar con IA, licuar tus granizados y despachar al repartidor de inmediato 🛵✨`,
+          };
+        }
+      }
+
+      // Si especificó sabores pero aún no tenemos dirección
+      session.paso = 'PEDIDO_ESPERA_DIRECCION';
+      const totalFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(pedidoDetectado.total);
+
+      return {
+        texto: `¡Con mucho gusto ${nombrePush || ''}! 🍧✨\n\n` +
+          `📋 *He preparado tu orden:*\n` +
+          `• ${pedidoDetectado.resumen}\n` +
+          `💰 *Total:* ${totalFmt} COP\n\n` +
+          `🛵 *Recuerda que en Graniza2KL el servicio es 100% a domicilio.*\n\n` +
+          `👉 *¿A qué dirección y barrio te lo llevamos?*\n` +
+          `_(Ejemplo: Calle 15 # 4-20, Álamos / Pereira)_`,
+      };
+    }
+
+    // 4. Si es solo saludo o consulta general, mostrar la carta exclusiva a domicilio
+    return {
+      texto: `👋 ¡Hola ${nombrePush || ''}! Bienvenido a *Graniza2KL* 🍧✨\n` +
+        `Especialistas en granizados artesanales de fruta natural.\n` +
+        `🛵 *Servicio 100% Exclusivo a Domicilio en Pereira y Dosquebradas.*\n\n` +
+        `*🥭 NUESTRA CARTA DE GRANIZADOS:*\n` +
+        `1️⃣ *Personal (12oz):* $7.000\n` +
+        `2️⃣ *Clásico (16oz):* $9.000  *(El más pedido)*\n` +
+        `3️⃣ *Mega Especial (24oz):* $13.000\n\n` +
+        `*🍧 Sabores de Fruta Natural:*\n` +
+        `• Mango Biche (con sal y limón)\n` +
+        `• Maracuyá (con lecherita)\n` +
+        `• Frutos Rojos silvestres\n` +
+        `• Café Frappé con crema\n` +
+        `• Tamarindo con Chamoy y Tajín\n\n` +
+        `✨ *Toppings gratis a elección:* Lecherita, Chamoy, Tajín o Sal y Limón.\n\n` +
+        `🛵 *¿Cómo pedir?*\n` +
+        `Escríbenos directamente lo que deseas y tu dirección.\n` +
+        `👉 *Ejemplo:* _"Quiero 2 clásicos de mango biche para la Calle 15 # 4-20"_\n` +
+        `¡Y te lo despachamos en minutos! 🍧💨`,
+    };
+  }
+
+  /**
+   * Extrae sabores, cantidades, tamaños y dirección de un texto libre para Graniza2KL
+   */
+  private static extraerPedidoGranizados(texto: string): {
+    esPedido: boolean;
+    items: string[];
+    resumen: string;
+    total: number;
+    direccion?: string;
+  } {
+    const t = texto.toLowerCase();
+    const saboresDisponibles = [
+      { clave: 'mango', nombre: 'Mango Biche con sal y limón' },
+      { clave: 'biche', nombre: 'Mango Biche con sal y limón' },
+      { clave: 'maracuya', nombre: 'Maracuyá con lecherita' },
+      { clave: 'maracuyá', nombre: 'Maracuyá con lecherita' },
+      { clave: 'frutos rojos', nombre: 'Frutos Rojos silvestres' },
+      { clave: 'mora', nombre: 'Frutos Rojos silvestres' },
+      { clave: 'fresa', nombre: 'Frutos Rojos silvestres' },
+      { clave: 'tamarindo', nombre: 'Tamarindo con Chamoy y Tajín' },
+      { clave: 'chamoy', nombre: 'Tamarindo con Chamoy y Tajín' },
+      { clave: 'cafe', nombre: 'Café Frappé' },
+      { clave: 'café', nombre: 'Café Frappé' },
+      { clave: 'frappe', nombre: 'Café Frappé' },
+      { clave: 'limon', nombre: 'Limón Frappé con sal' },
+      { clave: 'limón', nombre: 'Limón Frappé con sal' },
+    ];
+
+    let precioUnitario = 9000;
+    let tamanoStr = 'Clásico 16oz';
+    if (t.includes('mega') || t.includes('24oz') || t.includes('grande')) {
+      precioUnitario = 13000;
+      tamanoStr = 'Mega 24oz';
+    } else if (t.includes('personal') || t.includes('12oz') || t.includes('pequeñ') || t.includes('pequen')) {
+      precioUnitario = 7000;
+      tamanoStr = 'Personal 12oz';
+    }
+
+    let cantidadGlobal = 1;
+    const numMatch = t.match(/(\d+)\s*(?:granizado|vaso|mega|clasico|personal|de)/i);
+    if (numMatch && parseInt(numMatch[1], 10) > 0) {
+      cantidadGlobal = parseInt(numMatch[1], 10);
+    } else if (t.includes('dos ') || t.includes('2 ')) {
+      cantidadGlobal = 2;
+    } else if (t.includes('tres ') || t.includes('3 ')) {
+      cantidadGlobal = 3;
+    } else if (t.includes('cuatro ') || t.includes('4 ')) {
+      cantidadGlobal = 4;
+    }
+
+    const itemsEncontrados: string[] = [];
+    const saboresProcesados = new Set<string>();
+
+    for (const s of saboresDisponibles) {
+      if (t.includes(s.clave) && !saboresProcesados.has(s.nombre)) {
+        saboresProcesados.add(s.nombre);
+        itemsEncontrados.push(`${cantidadGlobal}x Granizado ${tamanoStr} de ${s.nombre}`);
+      }
+    }
+
+    if (itemsEncontrados.length === 0 && (t.includes('granizado') || t.includes('granizados'))) {
+      itemsEncontrados.push(`${cantidadGlobal}x Granizado ${tamanoStr} Artesanal`);
+    }
+
+    let direccion: string | undefined;
+    const dirRegex = /(?:calle|cra|carrera|cll|kr|av|avenida|diagonal|transversal|manzana|mz|barrio|conjunto|urbanizacion|pinares|álamos|alamos|centro)[^,\n.]+/i;
+    const dirMatch = texto.match(dirRegex);
+    if (dirMatch) {
+      direccion = dirMatch[0].trim();
+    } else {
+      const paraLa = texto.match(/(?:para|hacia|en)\s+(?:la\s+|el\s+)?([a-zA-Z0-9\s#\-_]{7,})/i);
+      if (paraLa && paraLa[1]) {
+        direccion = paraLa[1].trim();
+      }
+    }
+
+    const total = (itemsEncontrados.length || 1) * cantidadGlobal * precioUnitario;
+
+    return {
+      esPedido: itemsEncontrados.length > 0,
+      items: itemsEncontrados,
+      resumen: itemsEncontrados.join(' + '),
+      total,
+      direccion,
+    };
+  }
+
+  /**
+   * Extrae cancha, fecha y hora cuando el cliente escribe con contexto natural
+   */
+  private static extraerContextoReserva(texto: string, canchas: Cancha[]): {
+    cancha?: Cancha;
+    fecha?: string;
+    hora?: string;
+  } {
+    const t = texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // 1. Cancha o Recurso
+    let canchaMatch: Cancha | undefined;
+    for (const c of canchas) {
+      const nom = c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const deporte = c.deporte.toLowerCase();
+      const palabras = nom.split(/[\s\-()]+/);
+      const coincide = palabras.some((p) => p.length >= 4 && t.includes(p)) || t.includes(deporte);
+      if (coincide) {
+        canchaMatch = c;
+        break;
+      }
+    }
+
+    // 2. Fecha
+    let fechaMatch: string | undefined;
+    const palabrasTexto = texto.split(/\s+/);
+    for (let i = 0; i < palabrasTexto.length; i++) {
+      const fragmento = palabrasTexto.slice(i, i + 3).join(' ');
+      const f = this.interpretarFecha(fragmento);
+      if (f) {
+        fechaMatch = f;
+        break;
+      }
+    }
+    if (!fechaMatch && (t.includes('hoy') || t.includes('manana') || t.includes('viernes') || t.includes('sabado') || t.includes('domingo'))) {
+      fechaMatch = this.interpretarFecha(t) || undefined;
+    }
+
+    // 3. Hora (ej: "7pm", "19:00", "8:00", "3 de la tarde")
+    let horaMatch: string | undefined;
+    const horaRegex = /(?:a\s+las\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|de la manana|de la tarde|de la noche)?/i;
+    const hMatch = texto.match(horaRegex);
+    if (hMatch) {
+      let num = parseInt(hMatch[1], 10);
+      const sufijo = (hMatch[3] || '').toLowerCase();
+      if ((sufijo.includes('pm') || sufijo.includes('tarde') || sufijo.includes('noche')) && num < 12) {
+        num += 12;
+      }
+      if (num >= 6 && num <= 23) {
+        horaMatch = `${String(num).padStart(2, '0')}:00`;
+      }
+    }
+
+    return {
+      cancha: canchaMatch,
+      fecha: fechaMatch,
+      hora: horaMatch,
     };
   }
 }
