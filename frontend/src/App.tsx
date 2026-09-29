@@ -286,12 +286,22 @@ export function App() {
     localStorage.removeItem('sired_usuario');
   };
 
-  // Si no hay sesión iniciada, mostrar pantalla de Login
+  const pathSlug = typeof window !== 'undefined' ? window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase() : '';
+  const slugRuta = ['login', 'admin', 'metricas', 'calendario'].includes(pathSlug) ? '' : pathSlug;
+  const complejoActivo = complejos.find((c) => c.id === complejoActualId) || complejos[0];
+
+  // Si no hay sesión iniciada, mostrar pantalla de Login personalizada por slug
   if (!usuarioActual) {
-    return <LoginScreen complejos={complejos} onLogin={handleLogin} />;
+    return (
+      <LoginScreen
+        complejos={complejos}
+        onLogin={handleLogin}
+        complejoActivo={complejoActivo}
+        slugRuta={slugRuta}
+      />
+    );
   }
 
-  const complejoActivo = complejos.find((c) => c.id === complejoActualId) || complejos[0];
   const esSuperAdmin = usuarioActual.rol === 'superadmin';
 
   const rubro = complejoActivo?.tipo_negocio || 'deportes';
