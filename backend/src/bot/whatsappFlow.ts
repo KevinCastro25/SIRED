@@ -537,6 +537,15 @@ export class WhatsAppFlow {
     const fechaFinIso = `${session.fechaSeleccionada}T${horaFinNorm}:00Z`;
 
     try {
+      // Re-verificar en tiempo real que el horario siga verdaderamente libre y no haya sido tomado
+      const horariosActuales = await BookingService.getHorariosDisponibles(session.canchaSeleccionada!.id, session.fechaSeleccionada!);
+      const turnoLibre = horariosActuales.find((h) => h.hora_inicio.startsWith(horaIniNorm) && h.disponible);
+      if (!turnoLibre) {
+        return {
+          texto: '⚠️ *Horario no disponible*\n\nEste turno acaba de ser apartado por otro usuario o se encuentra bloqueado. Por favor despliega el menú para seleccionar un horario libre.',
+        };
+      }
+
       const porcentaje = complejo.porcentaje_anticipo_minimo ?? 50;
       const exigeAnticipo = porcentaje > 0;
 

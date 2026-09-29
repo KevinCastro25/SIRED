@@ -147,6 +147,7 @@ export class BookingService {
 
   /**
    * Consulta los horarios disponibles ejecutando la función RPC 'obtener_horarios_disponibles'
+   * y descartando horas que ya pasaron si la consulta es para el día de hoy en Colombia (UTC-5)
    */
   static async getHorariosDisponibles(canchaId: string, fechaIso: string): Promise<HorarioDisponible[]> {
     await this.liberarReservasExpiradas();
@@ -157,7 +158,29 @@ export class BookingService {
     });
 
     if (error) throw error;
-    return data || [];
+    const horarios = (data || []) as HorarioDisponible[];
+
+    // Obtener la fecha y hora actual en Colombia (America/Bogota, UTC-5)
+    const ahora = new Date();
+    const fechaCol = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Bogota' }));
+    const hoyColStr = `${fechaCol.getFullYear()}-${String(fechaCol.getMonth() + 1).padStart(2, '0')}-${String(fechaCol.getDate()).padStart(2, '0')}`;
+    const horaColStr = `${String(fechaCol.getHours()).padStart(2, '0')}:${String(fechaCol.getMinutes()).padStart(2, '0')}:00`;
+
+    const esHoy = fechaIso === hoyColStr;
+
+    return horarios.map((h) => {
+      // Si la base de datos ya lo tiene ocupado por reserva o bloqueo
+      if (!h.disponible) {
+        return { ...h, disponible: false };
+      }
+
+      // Si la fecha es hoy y la hora de inicio ya pasó, marcar como no disponible
+      if (esHoy && h.hora_inicio <= horaColStr) {
+        return { ...h, disponible: false };
+      }
+
+      return h;
+    });
   }
 
   /**
