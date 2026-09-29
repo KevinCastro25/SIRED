@@ -1,5 +1,6 @@
 import { BookingService, Complejo, Cancha, HorarioDisponible } from '../services/bookingService.js';
 import { ReceiptVerificationService } from '../services/receiptVerificationService.js';
+import { AIReceptionistService } from '../services/aiReceptionistService.js';
 import { supabase } from '../config/supabase.js';
 
 export interface InteractiveRow {
@@ -74,6 +75,14 @@ export class WhatsAppFlow {
 
       if (input === 'reiniciar' || input === 'menu' || input === 'cancelar' || (input === 'hola' && session.paso !== 'INICIO')) {
         session.paso = 'INICIO';
+      }
+
+      // Detección inteligente de consultas libres (FAQ) y derivación a asesor humano
+      if (!mediaId && (AIReceptionistService.esSolicitudHumano(input) || AIReceptionistService.esPreguntaFrecuente(input))) {
+        const consulta = await AIReceptionistService.responderConsulta(texto, complejo);
+        if (consulta.esPreguntaOAtencion && consulta.respuestaTexto) {
+          return { texto: consulta.respuestaTexto };
+        }
       }
 
       switch (session.paso) {
@@ -405,20 +414,44 @@ export class WhatsAppFlow {
     }
 
     // WhatsApp permite un máximo de 10 filas por mensaje interactivo de tipo lista
-    const slotsParaMenu = disponibles.slice(0, 10);
-    const rows: InteractiveRow[] = slotsParaMenu.map((h) => {
+    const filas1Hora: InteractiveRow[] = [];
+    const filas2Horas: InteractiveRow[] = [];
+
+    // Opciones de 1 hora (hasta 5 opciones)
+    for (const h of disponibles.slice(0, 5)) {
       const precioFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(h.precio);
-      const esPico = session.canchaSeleccionada ? h.precio > session.canchaSeleccionada.precio_estandar : false;
-      const picoTxt = esPico ? '🔥 Pico' : 'Estándar';
-      return {
+      filas1Hora.push({
         id: `hora_${h.hora_inicio.slice(0, 5)}`,
-        title: `${h.hora_inicio.slice(0, 5)} a ${h.hora_fin.slice(0, 5)}`,
-        description: `${precioFmt} • ${picoTxt}`.slice(0, 72),
-      };
-    });
+        title: `${h.hora_inicio.slice(0, 5)} a ${h.hora_fin.slice(0, 5)} (1h)`,
+        description: `${precioFmt} • 60 min`,
+      });
+    }
+
+    // Opciones de 2 horas seguidas (hasta 4 opciones si hay horas consecutivas libres)
+    for (let i = 0; i < disponibles.length - 1; i++) {
+      const h1 = disponibles[i];
+      const h2 = disponibles[i + 1];
+      if (h1 && h2 && h1.hora_fin === h2.hora_inicio && filas2Horas.length < 4) {
+        const precioTotal2h = h1.precio + h2.precio;
+        const precioTotalFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(precioTotal2h);
+        filas2Horas.push({
+          id: `hora2_${h1.hora_inicio.slice(0, 5)}`,
+          title: `${h1.hora_inicio.slice(0, 5)} a ${h2.hora_fin.slice(0, 5)} (2h)`,
+          description: `${precioTotalFmt} • 120 min seguidos`,
+        });
+      }
+    }
+
+    const sections: InteractiveSection[] = [];
+    if (filas1Hora.length > 0) {
+      sections.push({ title: 'Turnos de 1 Hora (60 min)', rows: filas1Hora });
+    }
+    if (filas2Horas.length > 0) {
+      sections.push({ title: 'Bloques de 2 Horas (120 min)', rows: filas2Horas });
+    }
 
     const texto = `📅 *${session.canchaSeleccionada!.nombre}* el *${fecha}*\n\n` +
-      `¡Hay ${disponibles.length} turnos disponibles! Despliega el menú a continuación para seleccionar el horario de tu partido:`;
+      `¡Hay turnos disponibles de 1 y 2 horas! Despliega el menú a continuación para seleccionar el horario de tu partido:`;
 
     return {
       texto,
@@ -426,15 +459,10 @@ export class WhatsAppFlow {
         type: 'list',
         header: 'Horarios Disponibles',
         body: texto,
-        footer: 'Turnos de 60 minutos',
+        footer: 'Elige 1 hora o 2 horas seguidas',
         action: {
           button: 'Elegir Horario',
-          sections: [
-            {
-              title: `Turnos para ${fecha}`,
-              rows,
-            },
-          ],
+          sections,
         },
       },
     };
@@ -451,21 +479,51 @@ export class WhatsAppFlow {
       return { texto: '⚠️ Horarios no cargados. Por favor selecciona nuevamente la fecha.' };
     }
 
+    const esBloque2h = input.startsWith('hora2_') || input.includes('2 horas') || input.includes('2h');
+    let duracionHoras = esBloque2h ? 2 : 1;
     let horario: HorarioDisponible | undefined;
+    let horaIniNorm = '';
+    let horaFinNorm = '';
+    let precioTotal = 0;
 
-    if (input.startsWith('hora_')) {
-      const horaLimpia = input.replace('hora_', '').slice(0, 5);
-      horario = session.horariosDisponibles.find((h) => h.hora_inicio.startsWith(horaLimpia));
+    if (esBloque2h) {
+      const horaLimpia = input.replace('hora2_', '').replace('hora_', '').slice(0, 5);
+      const h1Idx = session.horariosDisponibles.findIndex((h) => h.hora_inicio.startsWith(horaLimpia));
+      const h1 = session.horariosDisponibles[h1Idx];
+      const h2 = session.horariosDisponibles[h1Idx + 1];
+
+      if (h1 && h2 && h1.hora_fin === h2.hora_inicio) {
+        horario = h1;
+        horaIniNorm = h1.hora_inicio.slice(0, 5);
+        horaFinNorm = h2.hora_fin.slice(0, 5);
+        precioTotal = h1.precio + h2.precio;
+      } else if (h1) {
+        duracionHoras = 1;
+        horario = h1;
+        horaIniNorm = h1.hora_inicio.slice(0, 5);
+        horaFinNorm = h1.hora_fin.slice(0, 5);
+        precioTotal = h1.precio;
+      }
     } else {
-      const idx = parseInt(input, 10) - 1;
-      if (!isNaN(idx) && session.horariosDisponibles[idx]) {
-        horario = session.horariosDisponibles[idx];
+      if (input.startsWith('hora_')) {
+        const horaLimpia = input.replace('hora_', '').slice(0, 5);
+        horario = session.horariosDisponibles.find((h) => h.hora_inicio.startsWith(horaLimpia));
       } else {
-        horario = session.horariosDisponibles.find((h) => input.includes(h.hora_inicio.slice(0, 5)));
+        const idx = parseInt(input, 10) - 1;
+        if (!isNaN(idx) && session.horariosDisponibles[idx]) {
+          horario = session.horariosDisponibles[idx];
+        } else {
+          horario = session.horariosDisponibles.find((h) => input.includes(h.hora_inicio.slice(0, 5)));
+        }
+      }
+      if (horario) {
+        horaIniNorm = horario.hora_inicio.slice(0, 5);
+        horaFinNorm = horario.hora_fin.slice(0, 5);
+        precioTotal = horario.precio;
       }
     }
 
-    if (!horario) {
+    if (!horario || !horaIniNorm || !horaFinNorm) {
       return {
         texto: '⚠️ Opción de horario inválida. Despliega el menú y selecciona uno de los turnos disponibles.',
       };
@@ -475,28 +533,47 @@ export class WhatsAppFlow {
 
     const cliente = await BookingService.getOrCreateCliente(telefono);
 
-    const horaIniNorm = horario.hora_inicio.slice(0, 5);
-    const horaFinNorm = horario.hora_fin.slice(0, 5);
     const fechaInicioIso = `${session.fechaSeleccionada}T${horaIniNorm}:00Z`;
     const fechaFinIso = `${session.fechaSeleccionada}T${horaFinNorm}:00Z`;
 
     try {
       const porcentaje = complejo.porcentaje_anticipo_minimo ?? 50;
+      const exigeAnticipo = porcentaje > 0;
+
       const reserva = await BookingService.crearPreReserva({
         canchaId: session.canchaSeleccionada!.id,
         clienteId: cliente.id,
         fechaInicio: fechaInicioIso,
         fechaFin: fechaFinIso,
-        valorTotal: horario.precio,
+        valorTotal: precioTotal,
         porcentajeAnticipo: porcentaje,
       });
 
+      const totalFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(precioTotal);
+
+      // CASO A: EL ESCENARIO NO EXIGE ABONO / ANTICIPO (CONFIRMACIÓN INMEDIATA)
+      if (!exigeAnticipo) {
+        session.reservaId = reserva.id;
+        session.paso = 'INICIO';
+
+        return {
+          texto: `🎉 *¡RESERVA 100% CONFIRMADA!*\n\n` +
+            `🏢 Establecimiento: *${complejo.nombre}*\n` +
+            `🏟️ Cancha: *${session.canchaSeleccionada!.nombre}*\n` +
+            `📅 Fecha: *${session.fechaSeleccionada}*\n` +
+            `⏰ Horario: *${horaIniNorm} - ${horaFinNorm}* (${duracionHoras === 2 ? '2 Horas seguidas' : '1 Hora'})\n` +
+            `💰 Total a pagar: *${totalFmt}*\n\n` +
+            `✅ *En este escenario no requieres abono previo.*\n` +
+            `El valor total de tu turno lo pagas en efectivo o transferencia al llegar a la recepción del complejo.\n\n` +
+            `🔔 Te recordaremos tu partido antes de la hora fijada. ¡Nos vemos en la cancha! ⚽🎾`,
+        };
+      }
+
+      // CASO B: EL ESCENARIO EXIGE ABONO (BLOQUEO TEMPORAL DE 15 MIN Y ESPERA DE COMPROBANTE)
       session.reservaId = reserva.id;
       session.paso = 'ESPERA_PAGO';
 
       const anticipoFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(reserva.valor_anticipo_requerido);
-      const totalFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(horario.precio);
-
       const titular = complejo.titular_cuenta || complejo.nombre;
       const nequi = complejo.nequi_numero || 'Consultar con administración';
       const daviplata = complejo.daviplata_numero || nequi;
@@ -506,7 +583,7 @@ export class WhatsAppFlow {
           `🏢 Establecimiento: *${complejo.nombre}*\n` +
           `🏟️ Cancha: *${session.canchaSeleccionada!.nombre}*\n` +
           `📅 Fecha: *${session.fechaSeleccionada}*\n` +
-          `⏰ Horario: *${horaIniNorm} - ${horaFinNorm}*\n` +
+          `⏰ Horario: *${horaIniNorm} - ${horaFinNorm}* (${duracionHoras === 2 ? '2 Horas seguidas' : '1 Hora'})\n` +
           `💰 Total: *${totalFmt}*\n` +
           `💵 Anticipo requerido: *${anticipoFmt}* (${porcentaje}%)\n\n` +
           `📲 *Cuentas Oficiales de Recaudo:*\n` +

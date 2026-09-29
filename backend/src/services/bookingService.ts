@@ -11,6 +11,8 @@ export interface Complejo {
   whatsapp_token?: string;
   nequi_numero?: string;
   daviplata_numero?: string;
+  hora_apertura?: string;
+  hora_cierre?: string;
   titular_cuenta?: string;
   porcentaje_anticipo_minimo?: number;
 }
@@ -171,7 +173,9 @@ export class BookingService {
   }) {
     const porcentaje = params.porcentajeAnticipo ?? 50;
     const anticipoRequerido = (params.valorTotal * porcentaje) / 100;
-    const expiracion = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const esConfirmadaDirecta = porcentaje === 0;
+    const expiracion = esConfirmadaDirecta ? null : new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const estado = esConfirmadaDirecta ? 'confirmada' : 'pendiente_pago';
 
     const { data, error } = await supabase
       .from('reservas')
@@ -180,7 +184,7 @@ export class BookingService {
         cliente_id: params.clienteId,
         fecha_inicio: params.fechaInicio,
         fecha_fin: params.fechaFin,
-        estado: 'pendiente_pago',
+        estado,
         valor_total: params.valorTotal,
         valor_anticipo_requerido: anticipoRequerido,
         expiracion_reserva: expiracion,

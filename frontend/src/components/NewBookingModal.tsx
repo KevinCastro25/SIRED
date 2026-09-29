@@ -35,10 +35,18 @@ export const NewBookingModal: React.FC<Props> = ({
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [esBloqueo, setEsBloqueo] = useState(false);
-  const [motivoBloqueo, setMotivoBloqueo] = useState('Mantenimiento preventivo');
+  const [motivoBloqueo, setMotivoBloqueo] = useState('Torneo o Campeonato Oficial');
+  const [horaFinBloqueo, setHoraFinBloqueo] = useState(horaFin);
+  const [duracionManual, setDuracionManual] = useState<number>(1);
   const [cargando, setCargando] = useState(false);
 
   if (!isOpen || !cancha) return null;
+
+  const horaInicioNum = horaInicio ? parseInt(horaInicio.split(':')[0], 10) : 8;
+  const opcionesFinBloqueo: string[] = [];
+  for (let h = horaInicioNum + 1; h <= 23; h++) {
+    opcionesFinBloqueo.push(`${String(h).padStart(2, '0')}:00`);
+  }
 
   const handleCrearReservaManual = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,18 +60,22 @@ export const NewBookingModal: React.FC<Props> = ({
           body: JSON.stringify({
             cancha_id: cancha.id,
             fecha_inicio: `${fechaSeleccionada}T${horaInicio}:00Z`,
-            fecha_fin: `${fechaSeleccionada}T${horaFin}:00Z`,
+            fecha_fin: `${fechaSeleccionada}T${horaFinBloqueo}:00Z`,
             motivo: motivoBloqueo,
           }),
         });
       } else {
+        const finManual = duracionManual === 2 
+          ? `${String(Math.min(horaInicioNum + 2, 23)).padStart(2, '0')}:00` 
+          : horaFin;
+
         await fetch('/api/reservas', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             cancha_id: cancha.id,
             fecha_inicio: `${fechaSeleccionada}T${horaInicio}:00Z`,
-            fecha_fin: `${fechaSeleccionada}T${horaFin}:00Z`,
+            fecha_fin: `${fechaSeleccionada}T${finManual}:00Z`,
             nombre: nombre || 'Cliente Manual',
             telefono: telefono.replace(/\s+/g, '') || '573000000000',
           }),
@@ -261,6 +273,29 @@ export const NewBookingModal: React.FC<Props> = ({
             {!esBloqueo ? (
               <>
                 <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Duración del Turno</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDuracionManual(1)}
+                      className={`py-1.5 px-3 rounded-xl text-xs font-medium border transition ${
+                        duracionManual === 1 ? 'border-emerald-600 bg-emerald-50 text-emerald-800 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600'
+                      }`}
+                    >
+                      ⏱️ 1 Hora (60 min)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDuracionManual(2)}
+                      className={`py-1.5 px-3 rounded-xl text-xs font-medium border transition ${
+                        duracionManual === 2 ? 'border-emerald-600 bg-emerald-50 text-emerald-800 font-bold' : 'border-slate-200 bg-slate-50 text-slate-600'
+                      }`}
+                    >
+                      ⏱️ 2 Horas (120 min)
+                    </button>
+                  </div>
+                </div>
+                <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Nombre del Jugador</label>
                   <input
                     type="text"
@@ -284,18 +319,41 @@ export const NewBookingModal: React.FC<Props> = ({
                 </div>
               </>
             ) : (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Motivo del Bloqueo</label>
-                <select
-                  value={motivoBloqueo}
-                  onChange={(e) => setMotivoBloqueo(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 outline-none focus:bg-white focus:border-emerald-600"
-                >
-                  <option value="Mantenimiento preventivo">Mantenimiento preventivo</option>
-                  <option value="Torneo o Evento Especial">Torneo o Evento Especial</option>
-                  <option value="Condiciones Climáticas (Lluvia)">Condiciones Climáticas (Lluvia)</option>
-                  <option value="Uso Interno del Club">Uso Interno del Club</option>
-                </select>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Motivo del Bloqueo</label>
+                  <select
+                    value={motivoBloqueo}
+                    onChange={(e) => setMotivoBloqueo(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 outline-none focus:bg-white focus:border-amber-600 font-medium"
+                  >
+                    <option value="Torneo o Campeonato Oficial">🏆 Torneo o Campeonato Oficial</option>
+                    <option value="Mantenimiento preventivo">🔧 Mantenimiento Preventivo</option>
+                    <option value="Condiciones Climáticas (Lluvia)">🌧️ Condiciones Climáticas (Lluvia)</option>
+                    <option value="Uso Interno del Club / Academia">🔒 Uso Interno del Club / Academia</option>
+                    <option value="Evento Privado o Cumpleaños">🎉 Evento Privado o Cumpleaños</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Bloquear Franja Hasta (Hora Fin)</label>
+                  <select
+                    value={horaFinBloqueo}
+                    onChange={(e) => setHoraFinBloqueo(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 outline-none focus:bg-white focus:border-amber-600 font-medium"
+                  >
+                    {opcionesFinBloqueo.map((h) => {
+                      const horasTotales = parseInt(h.split(':')[0], 10) - horaInicioNum;
+                      return (
+                        <option key={h} value={h}>
+                          Hasta las {h} ({horasTotales} {horasTotales === 1 ? 'hora de bloqueo' : 'horas seguidas de bloqueo'})
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <p className="text-[11px] text-amber-700 mt-1">
+                    ⚡ Se bloquearán todas las horas entre {horaInicio} y {horaFinBloqueo} para que ningún usuario de WhatsApp pueda apartar turnos durante este torneo o mantenimiento.
+                  </p>
+                </div>
               </div>
             )}
 
