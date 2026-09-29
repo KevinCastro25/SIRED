@@ -230,6 +230,24 @@ app.post('/api/complejos', async (req: Request, res: Response) => {
   }
 });
 
+// Actualizar configuración de un complejo (WhatsApp Token, Phone ID, Nequi, etc.)
+app.patch('/api/complejos/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('complejos')
+      .update(req.body)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==============================================================================
 // 5. ENDPOINTS REST POR COMPLEJO (CALENDARIO, RESERVAS, MÉTRICAS)
 // ==============================================================================
