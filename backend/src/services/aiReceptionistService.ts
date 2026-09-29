@@ -220,18 +220,38 @@ INSTRUCCIONES:
 - Basado estrictamente en las reglas exclusivas de este complejo.
 - Termina siempre invitando cordialmente a reservar con: "Escribe *HOLA* o *MENU* para ver las canchas y turnos disponibles ⚽🎾".`;
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const modelosDisponibles = [
+      process.env.GEMINI_MODEL,
+      'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3-flash-preview',
+      'gemini-2.5-flash',
+      'gemini-1.5-flash',
+    ].filter(Boolean) as string[];
 
-    const res = await axios.post(
-      endpoint,
-      {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 250 },
-      },
-      { timeout: 8000 }
-    );
+    for (const modelo of modelosDisponibles) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
+        const res = await axios.post(
+          endpoint,
+          {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 250 },
+          },
+          { timeout: 8000 }
+        );
 
-    return res.data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+        const respuesta = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (respuesta) return respuesta;
+      } catch (e: any) {
+        // Fallback al siguiente modelo de la lista
+      }
+    }
+
+    return null;
   }
 
   /**
