@@ -16,6 +16,7 @@ interface Props {
   canchas: Cancha[];
   reservas: Reserva[];
   fechaSeleccionada: string;
+  tipoNegocio?: string;
   onCambiarFecha: (fecha: string) => void;
   onSeleccionarTurno: (cancha: Cancha, horaInicio: string, horaFin: string, reservaExistente?: Reserva) => void;
 }
@@ -24,6 +25,7 @@ export const CalendarView: React.FC<Props> = ({
   canchas,
   reservas,
   fechaSeleccionada,
+  tipoNegocio,
   onCambiarFecha,
   onSeleccionarTurno,
 }) => {
@@ -48,6 +50,31 @@ export const CalendarView: React.FC<Props> = ({
   const esHoy = fechaSeleccionada === new Date().toISOString().split('T')[0];
 
   const getDeporteColor = (deporte: string) => {
+    if (tipoNegocio === 'barberia') {
+      return {
+        bg: 'bg-amber-50',
+        text: 'text-amber-800',
+        border: 'border-amber-200',
+        badge: '💈 Puesto Barbero',
+      };
+    }
+    if (tipoNegocio === 'belleza_unas') {
+      return {
+        bg: 'bg-pink-50',
+        text: 'text-pink-800',
+        border: 'border-pink-200',
+        badge: '💅 Estación Spa',
+      };
+    }
+    if (tipoNegocio === 'salud' || tipoNegocio === 'consultorio') {
+      return {
+        bg: 'bg-teal-50',
+        text: 'text-teal-800',
+        border: 'border-teal-200',
+        badge: '🩺 Consultorio',
+      };
+    }
+
     switch (deporte) {
       case 'padel':
         return {

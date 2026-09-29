@@ -198,18 +198,32 @@ export class AIReceptionistService {
     const direccion = complejo.direccion || 'Sede principal';
     const ciudad = complejo.ciudad || 'Colombia';
     const info = this.getConocimientoComplejo(complejo);
+    const tipo = complejo.tipo_negocio || 'deportes';
+    let entidad = 'del establecimiento deportivo';
+    let invitacionFinal = 'Escribe *HOLA* o *MENU* para ver las canchas y turnos disponibles ⚽🎾.';
 
-    const prompt = `Eres el asistente virtual amable, cordial y profesional del complejo deportivo "${complejo.nombre}" en ${ciudad}, Colombia.
+    if (tipo === 'barberia') {
+      entidad = 'de la barbería';
+      invitacionFinal = 'Escribe *HOLA* o *MENU* para ver los barberos y turnos disponibles 💈✂️.';
+    } else if (tipo === 'belleza_unas') {
+      entidad = 'del salón y spa de uñas';
+      invitacionFinal = 'Escribe *HOLA* o *MENU* para ver las especialistas y turnos disponibles 💅✨.';
+    } else if (tipo === 'salud' || tipo === 'consultorio') {
+      entidad = 'del consultorio y centro de salud';
+      invitacionFinal = 'Escribe *HOLA* o *MENU* para ver los profesionales y citas disponibles 🩺📋.';
+    }
+
+    const prompt = `Eres el asistente virtual amable, cordial y profesional ${entidad} "${complejo.nombre}" en ${ciudad}, Colombia.
 Responde de forma clara, concisa (máximo 2 a 3 oraciones) a la siguiente pregunta del cliente por WhatsApp:
 
-DATOS Y REGLAS EXCLUSIVAS DE ESTE COMPLEJO:
+DATOS Y REGLAS EXCLUSIVAS DE ESTE NEGOCIO:
 - Nombre: ${complejo.nombre}
 - Ubicación: ${direccion}, ${ciudad}
 - Horarios de atención: de ${apertura} a ${cierre}
 - Parqueadero: ${info.parqueadero}
-- Calzado permitido: ${info.calzado}
-- Servicios e implementos: ${info.servicios}
-- Torneos y eventos: ${info.eventos || 'Disponibilidad de canchas para torneos y eventos previa coordinación.'}
+- Vestimenta/Calzado: ${info.calzado}
+- Servicios ofrecidos: ${info.servicios}
+- Eventos o planes especiales: ${info.eventos || 'Disponibilidad sujeta a previa reserva.'}
 - Reservas: 100% automáticas las 24 horas a través de este mismo WhatsApp.
 
 PREGUNTA DEL CLIENTE:
@@ -217,8 +231,8 @@ PREGUNTA DEL CLIENTE:
 
 INSTRUCCIONES:
 - Responde con tono colombiano amable, respetuoso y profesional.
-- Basado estrictamente en las reglas exclusivas de este complejo.
-- Termina siempre invitando cordialmente a reservar con: "Escribe *HOLA* o *MENU* para ver las canchas y turnos disponibles ⚽🎾".`;
+- Basado estrictamente en las reglas exclusivas de este negocio.
+- Termina siempre invitando cordialmente a reservar con: "${invitacionFinal}"`;
 
     const modelosDisponibles = [
       process.env.GEMINI_MODEL,
@@ -258,7 +272,21 @@ INSTRUCCIONES:
    * Respuestas estructuradas directas usando la ficha exclusiva de cada complejo
    */
   private static generarRespuestaPorReglas(t: string, complejo: Complejo): string {
-    const pie = `\n\n¿Deseas reservar tu turno? Escribe *HOLA* o *MENU* para ver canchas y horarios ⚽🎾.`;
+    const tipo = complejo.tipo_negocio || 'deportes';
+    let pie = `\n\n¿Deseas reservar tu turno? Escribe *HOLA* o *MENU* para ver canchas y horarios ⚽🎾.`;
+    let labelEventos = `🏆 *Eventos y Torneos en ${complejo.nombre}:*\n`;
+
+    if (tipo === 'barberia') {
+      pie = `\n\n¿Deseas agendar tu cita? Escribe *HOLA* o *MENU* para ver barberos y horarios 💈✂️.`;
+      labelEventos = `💈 *Servicios y Planes en ${complejo.nombre}:*\n`;
+    } else if (tipo === 'belleza_unas') {
+      pie = `\n\n¿Deseas agendar tu cita? Escribe *HOLA* o *MENU* para ver especialistas y horarios 💅✨.`;
+      labelEventos = `💅 *Planes y Eventos en ${complejo.nombre}:*\n`;
+    } else if (tipo === 'salud' || tipo === 'consultorio') {
+      pie = `\n\n¿Deseas agendar tu consulta? Escribe *HOLA* o *MENU* para ver especialistas y citas disponibles 🩺📋.`;
+      labelEventos = `🩺 *Planes y Consultas en ${complejo.nombre}:*\n`;
+    }
+
     const info = this.getConocimientoComplejo(complejo);
 
     if (t.includes('parqueadero') || t.includes('estacionamiento') || t.includes('carro') || t.includes('moto')) {
@@ -266,7 +294,7 @@ INSTRUCCIONES:
     }
 
     if (t.includes('guayo') || t.includes('tache') || t.includes('calzado') || t.includes('zapato')) {
-      return `👟 *Calzado permitido en ${complejo.nombre}:*\n${info.calzado}` + pie;
+      return `👟 *Calzado y vestimenta en ${complejo.nombre}:*\n${info.calzado}` + pie;
     }
 
     if (t.includes('ducha') || t.includes('vestier') || t.includes('baño') || t.includes('banos')) {
@@ -277,12 +305,12 @@ INSTRUCCIONES:
       return `📍 *Ubicación de ${complejo.nombre}:*\nNos encontramos en *${complejo.direccion}*, ${complejo.ciudad}. ¡Te esperamos!` + pie;
     }
 
-    if (t.includes('bebida') || t.includes('hidratacion') || t.includes('comida') || t.includes('cafeteria') || t.includes('peto') || t.includes('balon') || t.includes('pala') || t.includes('raqueta')) {
-      return `🥤 *Servicios e Implementos en ${complejo.nombre}:*\n${info.servicios}` + pie;
+    if (t.includes('bebida') || t.includes('hidratacion') || t.includes('comida') || t.includes('cafeteria') || t.includes('peto') || t.includes('balon') || t.includes('pala') || t.includes('raqueta') || t.includes('unas') || t.includes('corte') || t.includes('barba')) {
+      return `✨ *Servicios e Implementos en ${complejo.nombre}:*\n${info.servicios}` + pie;
     }
 
-    if (t.includes('torneo') || t.includes('cumpleaños') || t.includes('evento')) {
-      return `🏆 *Eventos y Torneos en ${complejo.nombre}:*\n${info.eventos || 'Organizamos torneos y reservamos franjas horarias completas para eventos deportivos.'}` + pie;
+    if (t.includes('torneo') || t.includes('cumpleaños') || t.includes('evento') || t.includes('boda') || t.includes('novio') || t.includes('novia')) {
+      return `${labelEventos}${info.eventos || 'Disponibilidad de atención para eventos previa reserva y coordinación.'}` + pie;
     }
 
     const apertura = complejo.hora_apertura ? complejo.hora_apertura.slice(0, 5) : '07:00';

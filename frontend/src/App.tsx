@@ -566,6 +566,7 @@ export function App() {
                   canchas={canchas}
                   reservas={reservas}
                   fechaSeleccionada={fechaSeleccionada}
+                  tipoNegocio={complejoActivo?.tipo_negocio}
                   onCambiarFecha={setFechaSeleccionada}
                   onSeleccionarTurno={handleSeleccionarTurno}
                 />
