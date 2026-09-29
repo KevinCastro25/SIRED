@@ -50,6 +50,7 @@ export function App() {
   const [horaFinModal, setHoraFinModal] = useState<string | undefined>();
   const [reservaExistenteModal, setReservaExistenteModal] = useState<Reserva | undefined>();
   const [actualizando, setActualizando] = useState(false);
+  const [pestanaActiva, setPestanaActiva] = useState<'calendario' | 'metricas'>('calendario');
 
   // 1. Cargar lista de complejos / empresas
   const cargarComplejos = async () => {
@@ -162,10 +163,19 @@ export function App() {
   };
 
   const handleLogin = (perfil: PerfilUsuario) => {
-    setUsuarioActual(perfil);
-    localStorage.setItem('sired_usuario', JSON.stringify(perfil));
-    if (perfil.rol !== 'superadmin' && perfil.complejo_id) {
-      setComplejoActualId(perfil.complejo_id);
+    let targetComplejoId = perfil.complejo_id;
+    if (!targetComplejoId && complejos.length > 0) {
+      targetComplejoId = complejos[0].id;
+    }
+    const perfilFinal: PerfilUsuario = {
+      ...perfil,
+      ...(targetComplejoId ? { complejo_id: targetComplejoId } : {}),
+    };
+    setUsuarioActual(perfilFinal);
+    localStorage.setItem('sired_usuario', JSON.stringify(perfilFinal));
+    if (targetComplejoId) {
+      setComplejoActualId(targetComplejoId);
+      cargarDatos(targetComplejoId);
     }
   };
 
@@ -181,7 +191,6 @@ export function App() {
 
   const complejoActivo = complejos.find((c) => c.id === complejoActualId) || complejos[0];
   const esSuperAdmin = usuarioActual.rol === 'superadmin';
-  const [pestanaActiva, setPestanaActiva] = useState<'calendario' | 'metricas'>('calendario');
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
