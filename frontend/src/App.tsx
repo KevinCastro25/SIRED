@@ -348,7 +348,7 @@ export function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       {/* Barra de Navegación Superior Limpia */}
-      <header className="bg-white sticky top-0 z-40 px-6 py-2.5 border-b border-slate-200 shadow-sm">
+      <header className="bg-white sticky top-0 z-40 px-3 sm:px-6 py-2.5 border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           
           {/* Logo y Empresa Activa */}
@@ -489,7 +489,7 @@ export function App() {
       </header>
 
       {/* Contenido Principal Limpio con Animación */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6">
         <AnimatePresence mode="wait">
           {pestanaActiva === 'calendario' ? (
             <motion.div
