@@ -133,6 +133,15 @@ async function enviarMensajeWhatsApp(
 
   let payload: any;
   if (typeof message === 'object' && message.interactive) {
+    const sanitizedSections = (message.interactive.action?.sections || []).map((sec: any) => ({
+      title: (sec.title || 'Opciones').slice(0, 24),
+      rows: (sec.rows || []).map((row: any) => ({
+        id: String(row.id || '').slice(0, 200),
+        title: String(row.title || '').slice(0, 24),
+        ...(row.description ? { description: String(row.description).slice(0, 72) } : {}),
+      })),
+    }));
+
     payload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
@@ -143,7 +152,10 @@ async function enviarMensajeWhatsApp(
         ...(message.interactive.header ? { header: { type: 'text', text: message.interactive.header.slice(0, 60) } } : {}),
         body: { text: message.interactive.body.slice(0, 1024) },
         ...(message.interactive.footer ? { footer: { text: message.interactive.footer.slice(0, 60) } } : {}),
-        action: message.interactive.action,
+        action: {
+          button: (message.interactive.action?.button || 'Elegir').slice(0, 20),
+          sections: sanitizedSections,
+        },
       },
     };
   } else {
@@ -175,6 +187,29 @@ async function enviarMensajeWhatsApp(
     );
   } catch (err: any) {
     console.error('Error enviando mensaje a WhatsApp:', err.response?.data || err.message);
+    if (typeof message === 'object' && message.interactive) {
+      try {
+        console.log(`[WHATSAPP FALLBACK]: Enviando mensaje en texto plano a ${to}`);
+        await axios.post(
+          `https://graph.facebook.com/v21.0/${phoneId}/messages`,
+          {
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to,
+            type: 'text',
+            text: { body: message.texto },
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      } catch (fallbackErr: any) {
+        console.error('Error en fallback de texto WhatsApp:', fallbackErr.response?.data || fallbackErr.message);
+      }
+    }
   }
 }
 

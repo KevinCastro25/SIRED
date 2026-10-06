@@ -234,7 +234,7 @@ export class WhatsAppFlow {
     session.canchaSeleccionada = canchaEncontrada;
     session.paso = 'SELECCION_FECHA';
 
-    const hoy = new Date();
+    const hoy = this.getFechaHoraColombia();
     const nombresDias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const nombresMeses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
@@ -244,13 +244,11 @@ export class WhatsAppFlow {
     for (let i = 0; i < 6; i++) {
       const d = new Date(hoy);
       d.setDate(hoy.getDate() + i);
-      const anio = d.getFullYear();
-      const mesStr = String(d.getMonth() + 1).padStart(2, '0');
-      const diaStr = String(d.getDate()).padStart(2, '0');
-      const fechaIso = `${anio}-${mesStr}-${diaStr}`;
+      const fechaIso = this.formatearIso(d);
 
       const nombreDia = nombresDias[d.getDay()];
       const nombreMes = nombresMeses[d.getMonth()];
+      const diaStr = String(d.getDate()).padStart(2, '0');
 
       let etiqueta = `${nombreDia} ${diaStr} ${nombreMes}`;
       if (i === 0) etiqueta = `Hoy (${nombreDia})`;
@@ -266,14 +264,14 @@ export class WhatsAppFlow {
     const filasPersonalizadas: InteractiveRow[] = [
       {
         id: 'fecha_personalizada',
-        title: '✏️ Escribir otra fecha',
+        title: '✏️ Otra fecha',
         description: 'Escribe cualquier fecha del año',
       },
     ];
 
     const sections: InteractiveSection[] = [
-      { title: 'Fechas Próximas', rows: filasProximosDias },
-      { title: 'Cualquier Otra Fecha', rows: filasPersonalizadas },
+      { title: 'Fechas Próximas'.slice(0, 24), rows: filasProximosDias },
+      { title: 'Cualquier Otra Fecha'.slice(0, 24), rows: filasPersonalizadas },
     ];
 
     const texto = `🏟️ Cancha elegida: *${session.canchaSeleccionada.nombre}*\n\n` +
@@ -297,53 +295,77 @@ export class WhatsAppFlow {
     };
   }
 
+  /**
+   * Obtiene la fecha y hora actual en la zona horaria de Colombia (America/Bogota, UTC-5)
+   */
+  public static getFechaHoraColombia(): Date {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false,
+    }).formatToParts(new Date());
+
+    const get = (type: string) => parseInt(parts.find((p) => p.type === type)?.value || '0', 10);
+    return new Date(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
+  }
+
+  /**
+   * Obtiene la fecha de hoy en Colombia en formato YYYY-MM-DD
+   */
+  public static getHoyColombiaStr(): string {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+
+    const y = parts.find((p) => p.type === 'year')?.value;
+    const m = parts.find((p) => p.type === 'month')?.value;
+    const d = parts.find((p) => p.type === 'day')?.value;
+    return `${y}-${m}-${d}`;
+  }
+
+  /**
+   * Formatea un Date a YYYY-MM-DD
+   */
+  public static formatearIso(d: Date): string {
+    const anio = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
+  }
+
   private static interpretarFecha(input: string): string | null {
+    if (!input) return null;
     const limpio = input.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const hoy = new Date();
+    const hoy = this.getFechaHoraColombia();
 
-    // 1. Selección directa desde el menú interactivo (ej. fecha_2026-10-06)
-    if (limpio.startsWith('fecha_')) {
-      const f = limpio.replace('fecha_', '');
-      if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f;
-    }
+    // 1. Detección directa de fecha ISO YYYY-MM-DD en cualquier parte de la cadena (ej. fecha_2026-10-06, 2026-10-06)
+    const isoMatch = limpio.match(/(20\d{2}-\d{2}-\d{2})/);
+    if (isoMatch) return isoMatch[1];
 
-    // 2. Comandos rápidos
-    if (limpio === 'hoy' || limpio === '1') {
-      return hoy.toISOString().split('T')[0];
-    }
-    if (limpio === 'manana' || limpio === '2') {
-      const m = new Date(hoy);
-      m.setDate(hoy.getDate() + 1);
-      return m.toISOString().split('T')[0];
-    }
-    if (limpio === 'pasado manana' || limpio === '3') {
+    // 2. Comandos y palabras clave para hoy / mañana / pasado mañana
+    if (limpio.includes('pasado manana') || limpio === '3') {
       const p = new Date(hoy);
       p.setDate(hoy.getDate() + 2);
-      return p.toISOString().split('T')[0];
+      return this.formatearIso(p);
+    }
+    if (limpio.includes('hoy') || limpio === '1') {
+      return this.formatearIso(hoy);
+    }
+    if (limpio.includes('manana') || limpio === '2') {
+      const m = new Date(hoy);
+      m.setDate(hoy.getDate() + 1);
+      return this.formatearIso(m);
     }
 
-    // 3. Formato AAAA-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}$/.test(limpio)) {
-      return limpio;
-    }
-
-    // 4. Formato DD/MM o DD-MM o DD/MM/AAAA (ej. 15/10 o 15-10-2026)
-    const regexBarra = /^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{4}))?$/;
-    const matchBarra = limpio.match(regexBarra);
-    if (matchBarra) {
-      const dia = parseInt(matchBarra[1], 10);
-      const mes = parseInt(matchBarra[2], 10) - 1;
-      const anio = matchBarra[3] ? parseInt(matchBarra[3], 10) : hoy.getFullYear();
-      const d = new Date(anio, mes, dia);
-      if (!matchBarra[3] && d < hoy && (hoy.getTime() - d.getTime()) > 86400000) {
-        d.setFullYear(anio + 1);
-      }
-      const mesStr = String(d.getMonth() + 1).padStart(2, '0');
-      const diaStr = String(d.getDate()).padStart(2, '0');
-      return `${d.getFullYear()}-${mesStr}-${diaStr}`;
-    }
-
-    // 5. Formato texto natural: "15 de octubre", "15 oct"
+    // 3. Formato texto natural: "mar 06 oct", "18 de octubre", "el 25 de noviembre de 2026", "6 oct"
     const meses: Record<string, number> = {
       enero: 0, ene: 0,
       febrero: 1, feb: 1,
@@ -359,7 +381,7 @@ export class WhatsAppFlow {
       diciembre: 11, dic: 11,
     };
 
-    const regexTextoMes = /^(\d{1,2})\s+(?:de\s+)?([a-z]+)(?:\s+(?:de\s+)?(\d{4}))?$/;
+    const regexTextoMes = /(?:(?:dom|lun|mar|mie|jue|vie|sab|domingo|lunes|martes|miercoles|jueves|viernes|sabado)\s+)?(\d{1,2})\s+(?:de\s+)?([a-z]+)(?:\s+(?:de\s+)?(\d{4}))?/;
     const matchTextoMes = limpio.match(regexTextoMes);
     if (matchTextoMes) {
       const dia = parseInt(matchTextoMes[1], 10);
@@ -368,13 +390,28 @@ export class WhatsAppFlow {
         const mes = meses[nombreMes];
         const anio = matchTextoMes[3] ? parseInt(matchTextoMes[3], 10) : hoy.getFullYear();
         const d = new Date(anio, mes, dia);
-        const mesStr = String(d.getMonth() + 1).padStart(2, '0');
-        const diaStr = String(d.getDate()).padStart(2, '0');
-        return `${d.getFullYear()}-${mesStr}-${diaStr}`;
+        if (!matchTextoMes[3] && d < hoy && (hoy.getTime() - d.getTime()) > 86400000) {
+          d.setFullYear(anio + 1);
+        }
+        return this.formatearIso(d);
       }
     }
 
-    // 6. Días de la semana relativos: "lunes", "el próximo viernes", "el otro sábado"
+    // 4. Formato DD/MM o DD-MM o DD/MM/AAAA (ej. 15/10 o 15-10-2026)
+    const regexBarra = /(?:^|\s|[^\d\-])(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{4}))?(?:\s|[^\d\-]|$)/;
+    const matchBarra = limpio.match(regexBarra);
+    if (matchBarra) {
+      const dia = parseInt(matchBarra[1], 10);
+      const mes = parseInt(matchBarra[2], 10) - 1;
+      const anio = matchBarra[3] ? parseInt(matchBarra[3], 10) : hoy.getFullYear();
+      const d = new Date(anio, mes, dia);
+      if (!matchBarra[3] && d < hoy && (hoy.getTime() - d.getTime()) > 86400000) {
+        d.setFullYear(anio + 1);
+      }
+      return this.formatearIso(d);
+    }
+
+    // 5. Días de la semana relativos: "lunes", "el próximo viernes", "el otro sábado"
     const diasSemana: Record<string, number> = {
       domingo: 0, dom: 0,
       lunes: 1, lun: 1,
@@ -386,7 +423,8 @@ export class WhatsAppFlow {
     };
 
     for (const [nombreDia, targetDay] of Object.entries(diasSemana)) {
-      if (limpio.includes(nombreDia)) {
+      const regWord = new RegExp(`\\b${nombreDia}\\b`, 'i');
+      if (regWord.test(limpio)) {
         const esProximaSemana = limpio.includes('proxim') || limpio.includes('otra') || limpio.includes('siguiente');
         const diaActual = hoy.getDay();
         let diff = targetDay - diaActual;
@@ -400,9 +438,7 @@ export class WhatsAppFlow {
 
         const fechaCalculada = new Date(hoy);
         fechaCalculada.setDate(hoy.getDate() + diff);
-        const mesStr = String(fechaCalculada.getMonth() + 1).padStart(2, '0');
-        const diaStr = String(fechaCalculada.getDate()).padStart(2, '0');
-        return `${fechaCalculada.getFullYear()}-${mesStr}-${diaStr}`;
+        return this.formatearIso(fechaCalculada);
       }
     }
 
@@ -431,8 +467,8 @@ export class WhatsAppFlow {
       };
     }
 
-    // Validar que no sea una fecha en el pasado
-    const hoyStr = new Date().toISOString().split('T')[0];
+    // Validar que no sea una fecha en el pasado usando la fecha de Colombia (UTC-5)
+    const hoyStr = this.getHoyColombiaStr();
     if (fecha < hoyStr) {
       return {
         texto: `⚠️ La fecha que ingresaste (*${fecha}*) ya pasó. Por favor escribe una fecha futura (ejemplo: *"18 de octubre"* o *"el próximo sábado"*).`,
@@ -462,8 +498,8 @@ export class WhatsAppFlow {
       const precioFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(h.precio);
       filas1Hora.push({
         id: `hora_${h.hora_inicio.slice(0, 5)}`,
-        title: `${h.hora_inicio.slice(0, 5)} a ${h.hora_fin.slice(0, 5)} (1h)`,
-        description: `${precioFmt} • 60 min`,
+        title: `${h.hora_inicio.slice(0, 5)} a ${h.hora_fin.slice(0, 5)} (1h)`.slice(0, 24),
+        description: `${precioFmt} • 60 min`.slice(0, 72),
       });
     }
 
@@ -476,18 +512,18 @@ export class WhatsAppFlow {
         const precioTotalFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(precioTotal2h);
         filas2Horas.push({
           id: `hora2_${h1.hora_inicio.slice(0, 5)}`,
-          title: `${h1.hora_inicio.slice(0, 5)} a ${h2.hora_fin.slice(0, 5)} (2h)`,
-          description: `${precioTotalFmt} • 120 min seguidos`,
+          title: `${h1.hora_inicio.slice(0, 5)} a ${h2.hora_fin.slice(0, 5)} (2h)`.slice(0, 24),
+          description: `${precioTotalFmt} • 120 min seguidos`.slice(0, 72),
         });
       }
     }
 
     const sections: InteractiveSection[] = [];
     if (filas1Hora.length > 0) {
-      sections.push({ title: 'Turnos de 1 Hora (60 min)', rows: filas1Hora });
+      sections.push({ title: 'Turnos de 1 Hora', rows: filas1Hora });
     }
     if (filas2Horas.length > 0) {
-      sections.push({ title: 'Bloques de 2 Horas (120 min)', rows: filas2Horas });
+      sections.push({ title: 'Turnos de 2 Horas', rows: filas2Horas });
     }
 
     const texto = `📅 *${session.canchaSeleccionada!.nombre}* el *${fecha}*\n\n` +
