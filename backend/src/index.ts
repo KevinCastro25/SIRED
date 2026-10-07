@@ -518,6 +518,127 @@ app.patch('/api/reservas/:id/rechazar-anticipo', async (req: Request, res: Respo
   }
 });
 
+// 3. Actualizar Estado de Pedido (Kanban Graniza2KL) con Notificación Automática WhatsApp
+app.patch('/api/pedidos/:id/estado', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { nuevoEstado, notas } = req.body;
+
+  try {
+    const { data: reserva, error: errRes } = await supabase
+      .from('reservas')
+      .select('*, canchas!inner(*, complejos!inner(*)), clientes(*)')
+      .eq('id', id)
+      .single();
+
+    if (errRes || !reserva) {
+      return res.status(404).json({ error: 'Pedido no encontrado' });
+    }
+
+    let estadoDb = reserva.estado;
+    let tag = '';
+
+    if (nuevoEstado === 'en_preparacion') {
+      estadoDb = 'confirmada';
+      tag = '[EN_PREPARACION]';
+    } else if (nuevoEstado === 'en_camino' || nuevoEstado === 'en_domicilio') {
+      estadoDb = 'confirmada';
+      tag = '[EN_DOMICILIO]';
+    } else if (nuevoEstado === 'entregado' || nuevoEstado === 'completada') {
+      estadoDb = 'completada';
+      tag = '[ENTREGADO]';
+    } else if (nuevoEstado === 'nuevo' || nuevoEstado === 'pendiente_pago') {
+      estadoDb = 'pendiente_pago';
+      tag = '[ESPERANDO_PAGO]';
+    }
+
+    const notaBase = (notas || reserva.notas || '')
+      .replace(/\[EN_PREPARACION\]|\[EN_DOMICILIO\]|\[ENTREGADO\]|\[ESPERANDO_PAGO\]/g, '')
+      .trim();
+
+    const notasFinales = `${notaBase} ${tag}`.trim();
+
+    const { data: reservaActualizada, error: errUpd } = await supabase
+      .from('reservas')
+      .update({
+        estado: estadoDb,
+        notas: notasFinales,
+      })
+      .eq('id', id)
+      .select('*, canchas!inner(*, complejos!inner(*)), clientes(*)')
+      .single();
+
+    if (errUpd) throw errUpd;
+
+    // Extraer datos para la notificación al cliente por WhatsApp
+    const cliente = reserva.clientes as any;
+    const cancha = reserva.canchas as any;
+    const complejo = cancha?.complejos as any;
+    let mensajeEnviado = false;
+
+    if (cliente?.telefono_wa) {
+      let direccion = 'Pereira / Cobertura Domicilio';
+      const dirMatch = (reservaActualizada.notas || '').match(/📍\s*Domicilio:\s*([^.[\n]+)/i);
+      if (dirMatch && dirMatch[1]) direccion = dirMatch[1].trim();
+
+      let detalleProd = 'tus granizados con licor';
+      const prodMatch = (reservaActualizada.notas || '').match(/🍧\s*([^📍[\n]+)/i);
+      if (prodMatch && prodMatch[1]) detalleProd = prodMatch[1].trim();
+
+      const nombreCliente = cliente.nombre || 'Cliente';
+      const totalFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(reservaActualizada.valor_total || 0);
+
+      let mensajeWhatsApp = '';
+
+      if (nuevoEstado === 'en_preparacion') {
+        mensajeWhatsApp =
+          `🍧 *¡Tu orden de Graniza2KL está en preparación!* 🍸\n\n` +
+          `¡Hola *${nombreCliente}*! Tu pedido ya pasó a la barra de preparación.\n` +
+          `Estamos licuando tus frappés con licor bien fríos, pulpa fresca y todos tus toppings listos ❄️✨.\n\n` +
+          `📋 *Detalle:* ${detalleProd}\n` +
+          `📍 *Dirección de entrega:* ${direccion}\n` +
+          `💰 *Total:* ${totalFmt}\n\n` +
+          `Te avisaremos en cuanto salga en camino con el repartidor 🛵💨.`;
+      } else if (nuevoEstado === 'en_camino' || nuevoEstado === 'en_domicilio') {
+        mensajeWhatsApp =
+          `🛵💨 *¡Tu pedido de Graniza2KL va en camino!*\n\n` +
+          `¡Hola *${nombreCliente}*! Tu orden acaba de ser despachada con nuestro repartidor rumbo a tu ubicación:\n` +
+          `📍 *${direccion}*\n\n` +
+          `📋 *Llevamos:* ${detalleProd}\n\n` +
+          `Ten a la mano tu teléfono por si el repartidor te timbra o llama al llegar. ¡A disfrutar de tus granizados con licor (+18) bien helados! 🍸🍧✨`;
+      } else if (nuevoEstado === 'entregado' || nuevoEstado === 'completada') {
+        mensajeWhatsApp =
+          `✅ *¡Pedido Entregado con Éxito!* 🎉\n\n` +
+          `¡Hola *${nombreCliente}*! Tu orden ha sido completada y entregada.\n\n` +
+          `¡Muchísimas gracias por elegir a *Graniza2KL - Granizados con Licor*! Esperamos que disfrutes al máximo tus cócteles frappé (+18) 🍸✨.\n\n` +
+          `👉 Si deseas pedir de nuevo más tarde o para tu próxima fiesta, solo escribe *HOLA* en este chat. ¡Salud! 🥂🍧`;
+      }
+
+      if (mensajeWhatsApp) {
+        try {
+          await enviarMensajeWhatsApp(
+            cliente.telefono_wa,
+            mensajeWhatsApp,
+            complejo?.whatsapp_token,
+            complejo?.whatsapp_phone_number_id
+          );
+          mensajeEnviado = true;
+        } catch (waErr: any) {
+          console.error('Error enviando notificación WhatsApp de pedido:', waErr.message);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      reserva: reservaActualizada,
+      mensajeEnviado,
+    });
+  } catch (error: any) {
+    console.error('Error actualizando estado de pedido:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Métricas y Resumen Financiero filtradas por complejo
 app.get('/api/metricas', async (req: Request, res: Response) => {
   try {
