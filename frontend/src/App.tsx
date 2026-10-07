@@ -7,6 +7,7 @@ import { AnalyticsCharts } from './components/AnalyticsCharts.tsx';
 import { NewBookingModal } from './components/NewBookingModal.tsx';
 import { NewComplejoModal } from './components/NewComplejoModal.tsx';
 import { LoginScreen } from './components/LoginScreen.tsx';
+import { MimateNailsBooking } from './components/MimateNailsBooking.tsx';
 import { Cancha, Reserva, Metricas, Complejo, PerfilUsuario } from './types.ts';
 import { supabase } from './config/supabase.ts';
 import { BrandLogo } from './components/BrandLogo.tsx';
@@ -300,6 +301,18 @@ export function App() {
   const slugRuta = ['login', 'admin', 'metricas', 'calendario'].includes(pathSlug) ? '' : pathSlug;
   const complejoActivo = complejos.find((c) => c.id === complejoActualId) || complejos[0];
 
+  // Si la ruta es la página web de reservas públicas de JL Mímate Nails
+  const esRutaReservaPublica = pathSlug === 'reservar' || pathSlug.includes('mimate') || pathSlug.endsWith('/reservar');
+  if (esRutaReservaPublica) {
+    return (
+      <MimateNailsBooking
+        onIrAlAdmin={() => {
+          window.location.href = '/login';
+        }}
+      />
+    );
+  }
+
   // Si no hay sesión iniciada, mostrar pantalla de Login personalizada por slug
   if (!usuarioActual) {
     return (
@@ -464,6 +477,17 @@ export function App() {
 
           {/* Acciones y Perfil */}
           <div className="flex items-center gap-2.5">
+            {/* Botón directo a la Web de Reservas para clientes */}
+            <a
+              href="/reservar"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-[#8C243B] border border-pink-200 text-xs font-bold rounded-xl transition shadow-xs"
+              title="Abrir página web de reservas de clientes"
+            >
+              <span>🌸</span>
+              <span className="hidden lg:inline">Web de Clientes (/reservar)</span>
+            </a>
             {esSuperAdmin && (
               <button
                 onClick={() => setModalComplejoAbierto(true)}

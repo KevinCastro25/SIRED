@@ -639,6 +639,310 @@ app.patch('/api/pedidos/:id/estado', async (req: Request, res: Response) => {
   }
 });
 
+// ==============================================================================
+// 4. ENDPOINTS RESERVAS WEB SPA DE UÑAS (JL MÍMATE NAILS) - SIN ANTICIPO
+// ==============================================================================
+
+const SERVICIOS_MIMATE_NAILS = [
+  {
+    id: 1,
+    nombre: 'Manicura tradicional',
+    categoria: 'Tradicional',
+    duracion: 45,
+    precio: 25000,
+    descripcion: 'Limpieza profunda, corte, limado, exfoliación, hidratación y esmaltado tradicional.'
+  },
+  {
+    id: 2,
+    nombre: 'Pedicure tradicional',
+    categoria: 'Tradicional',
+    duracion: 50,
+    precio: 30000,
+    descripcion: 'Cuidado completo de pies, retiro de callosidades, exfoliación, masaje y esmaltado.'
+  },
+  {
+    id: 3,
+    nombre: 'Semipermanente',
+    categoria: 'Semipermanente & Ruber',
+    duracion: 60,
+    precio: 45000,
+    descripcion: 'Esmaltado en gel curado en lámpara LED con brillo espejo y duración de hasta 21 días.'
+  },
+  {
+    id: 4,
+    nombre: 'Base ruber',
+    categoria: 'Semipermanente & Ruber',
+    duracion: 60,
+    precio: 55000,
+    descripcion: 'Nivelación y refuerzo estructural con base elástica de alta densidad para uñas frágiles.'
+  },
+  {
+    id: 5,
+    nombre: 'Dipping',
+    categoria: 'Dipping & Press On',
+    duracion: 60,
+    precio: 60000,
+    descripcion: 'Técnica de polvo de inmersión sin lámpara, extra resistente y acabado ultra natural.'
+  },
+  {
+    id: 6,
+    nombre: 'Uñas press on',
+    categoria: 'Dipping & Press On',
+    duracion: 60,
+    precio: 50000,
+    descripcion: 'Tips preformados de gel aplicados con adhesivo curable para largo y forma al instante.'
+  },
+  {
+    id: 7,
+    nombre: 'Acrilico esculpido',
+    categoria: 'Esculpidas & Polygel',
+    duracion: 90,
+    precio: 85000,
+    descripcion: 'Extensión artesanal esculpida a mano con monómero y polímero para estructura perfecta.'
+  },
+  {
+    id: 8,
+    nombre: 'Uñas polygel',
+    categoria: 'Esculpidas & Polygel',
+    duracion: 90,
+    precio: 80000,
+    descripcion: 'Fusión híbrida de gel y acrílico, liviano, sin olor y con máxima flexibilidad y durabilidad.'
+  },
+  {
+    id: 9,
+    nombre: 'Recubrimiento uña natural',
+    categoria: 'Recubrimiento & Cuidado',
+    duracion: 75,
+    precio: 65000,
+    descripcion: 'Capa protectora de acrílico o gel sobre el largo propio para evitar rupturas y permitir crecimiento.'
+  },
+];
+
+// Obtener info del spa, empleadas y catálogo de servicios
+app.get('/api/spa/info', async (req: Request, res: Response) => {
+  try {
+    let { data: complejo } = await supabase
+      .from('complejos')
+      .select('*')
+      .eq('slug', 'mimate-nails')
+      .maybeSingle();
+
+    if (!complejo) {
+      complejo = await BookingService.crearComplejo({
+        nombre: 'JL Mímate Nails',
+        slug: 'mimate-nails',
+        tipo_negocio: 'belleza_unas',
+        direccion: 'Pereira, Risaralda · Spa de Uñas',
+        ciudad: 'Pereira',
+        telefono_whatsapp: '573155204567',
+        hora_apertura: '09:30:00',
+        hora_cierre: '17:30:00',
+        porcentaje_anticipo_minimo: 0,
+      });
+    }
+
+    const { data: canchas } = await supabase
+      .from('canchas')
+      .select('*')
+      .eq('complejo_id', complejo.id)
+      .eq('activa', true)
+      .order('nombre');
+
+    res.json({
+      complejo,
+      equipo: canchas || [],
+      servicios: SERVICIOS_MIMATE_NAILS,
+      categorias: ['Todos', 'Tradicional', 'Semipermanente & Ruber', 'Dipping & Press On', 'Esculpidas & Polygel', 'Recubrimiento & Cuidado']
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Obtener horarios (slots) disponibles para una fecha específica (Lunes a Sábado, 9:30 am a 5:30 pm)
+app.get('/api/spa/slots', async (req: Request, res: Response) => {
+  const { date, cancha_id } = req.query;
+  if (!date) return res.status(400).json({ error: 'Parámetro date requerido (YYYY-MM-DD)' });
+
+  try {
+    const fechaObj = new Date(`${date}T12:00:00-05:00`);
+    const diaSemana = fechaObj.getDay(); // 0 = Domingo
+
+    if (diaSemana === 0) {
+      return res.json({
+        date,
+        slots: [],
+        aviso: 'Los domingos estamos cerrados. Atendemos con amor de Lunes a Sábado de 9:30 am a 5:30 pm 💕',
+      });
+    }
+
+    const { data: complejo } = await supabase
+      .from('complejos')
+      .select('id')
+      .eq('slug', 'mimate-nails')
+      .maybeSingle();
+
+    if (!complejo) return res.status(404).json({ error: 'Spa no configurado' });
+
+    const { data: empleadas } = await supabase
+      .from('canchas')
+      .select('id, nombre')
+      .eq('complejo_id', complejo.id)
+      .eq('activa', true);
+
+    const listaEmpleadas = empleadas || [];
+    if (listaEmpleadas.length === 0) return res.json({ date, slots: [] });
+
+    // Franjas horarias de 9:30 am a 5:30 pm (último turno inicia a las 16:30)
+    const horasBase = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
+
+    const inicioDia = `${date}T00:00:00-05:00`;
+    const finDia = `${date}T23:59:59-05:00`;
+
+    const { data: reservasOcupadas } = await supabase
+      .from('reservas')
+      .select('cancha_id, fecha_inicio, fecha_fin, estado')
+      .in('cancha_id', listaEmpleadas.map(e => e.id))
+      .neq('estado', 'cancelada')
+      .gte('fecha_inicio', inicioDia)
+      .lte('fecha_inicio', finDia);
+
+    const ocupadas = reservasOcupadas || [];
+    const slotsDisponibles: string[] = [];
+
+    for (const h of horasBase) {
+      if (cancha_id) {
+        const estaOcupada = ocupadas.some(r => r.cancha_id === cancha_id && r.fecha_inicio.includes(`T${h}`));
+        if (!estaOcupada) slotsDisponibles.push(h);
+      } else {
+        const empleadasOcupadasEnHora = ocupadas.filter(r => r.fecha_inicio.includes(`T${h}`)).map(r => r.cancha_id);
+        const hayLibre = listaEmpleadas.some(e => !empleadasOcupadasEnHora.includes(e.id));
+        if (hayLibre) slotsDisponibles.push(h);
+      }
+    }
+
+    res.json({
+      date,
+      slots: slotsDisponibles,
+      aviso: slotsDisponibles.length === 0 ? 'No hay horarios disponibles para esta fecha. Prueba con otro día 💕' : undefined
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Confirmar reserva web (100% directa, sin anticipo)
+app.post('/api/spa/reservar', async (req: Request, res: Response) => {
+  const {
+    servicio_nombre,
+    precio,
+    duracion_minutos = 60,
+    fecha,
+    hora,
+    cancha_id,
+    cliente_nombre,
+    cliente_telefono
+  } = req.body;
+
+  if (!fecha || !hora || !cliente_telefono || !cliente_nombre) {
+    return res.status(400).json({ error: 'Faltan datos requeridos (fecha, hora, nombre, teléfono)' });
+  }
+
+  try {
+    const { data: complejo } = await supabase
+      .from('complejos')
+      .select('*')
+      .eq('slug', 'mimate-nails')
+      .maybeSingle();
+
+    if (!complejo) throw new Error('Spa no encontrado');
+
+    const { data: empleadas } = await supabase
+      .from('canchas')
+      .select('*')
+      .eq('complejo_id', complejo.id)
+      .eq('activa', true);
+
+    const listaEmpleadas = empleadas || [];
+
+    let empleadaAsignada = listaEmpleadas.find(e => e.id === cancha_id);
+
+    if (!empleadaAsignada) {
+      const { data: reservasEnHora } = await supabase
+        .from('reservas')
+        .select('cancha_id')
+        .in('cancha_id', listaEmpleadas.map(e => e.id))
+        .neq('estado', 'cancelada')
+        .eq('fecha_inicio', `${fecha}T${hora}:00-05:00`);
+
+      const ocupadasIds = (reservasEnHora || []).map(r => r.cancha_id);
+      empleadaAsignada = listaEmpleadas.find(e => !ocupadasIds.includes(e.id)) || listaEmpleadas[0];
+    }
+
+    const cliente = await BookingService.getOrCreateCliente(cliente_telefono, cliente_nombre);
+
+    const dInicio = new Date(`${fecha}T${hora}:00-05:00`);
+    const dFin = new Date(dInicio.getTime() + (duracion_minutos || 60) * 60 * 1000);
+    const fechaFinIso = dFin.toISOString();
+
+    const notas = `💅 Servicio: ${servicio_nombre || 'Uñas'} | Reserva Web JL Mímate Nails | Pago en el spa (Sin cobro anticipado)`;
+
+    const { data: reserva, error: errRes } = await supabase
+      .from('reservas')
+      .insert({
+        cancha_id: empleadaAsignada.id,
+        cliente_id: cliente.id,
+        fecha_inicio: dInicio.toISOString(),
+        fecha_fin: fechaFinIso,
+        valor_total: precio || 35000,
+        valor_anticipo_requerido: 0,
+        estado: 'confirmada',
+        notas,
+      })
+      .select('*, canchas(*), clientes(*)')
+      .single();
+
+    if (errRes) throw errRes;
+
+    // Enviar confirmación automática por WhatsApp
+    const precioFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(precio || 35000);
+    const mensajeWhatsApp =
+      `🌸 *¡CITA CONFIRMADA EN JL MÍMATE NAILS!* 💅✨\n\n` +
+      `¡Hola *${cliente_nombre}*! Tu cita ha sido agendada con éxito en nuestro spa de uñas:\n\n` +
+      `💅 *Servicio:* ${servicio_nombre}\n` +
+      `👩‍🎨 *Especialista:* ${empleadaAsignada.nombre}\n` +
+      `📅 *Fecha:* ${fecha}\n` +
+      `⏰ *Hora:* ${hora}\n` +
+      `💰 *Total a pagar:* ${precioFmt} (Pago en el spa - sin cobro anticipado)\n\n` +
+      `📍 *Ubicación:* Pereira · Spa de Uñas\n\n` +
+      `🔔 *Recordatorios automáticos:* Te enviaremos un recordatorio por aquí *1 día antes* y *el mismo día de tu cita*.\n` +
+      `¡Gracias por elegirnos! Nos vemos pronto para consentirte reina 💕🌸`;
+
+    let waEnviado = false;
+    try {
+      await enviarMensajeWhatsApp(
+        cliente_telefono,
+        mensajeWhatsApp,
+        complejo?.whatsapp_token,
+        complejo?.whatsapp_phone_number_id
+      );
+      waEnviado = true;
+    } catch (e: any) {
+      console.warn('No se pudo enviar WhatsApp inmediato:', e.message);
+    }
+
+    res.status(201).json({
+      success: true,
+      reserva,
+      empleada: empleadaAsignada.nombre,
+      waEnviado,
+    });
+  } catch (error: any) {
+    console.error('Error creando reserva web en spa:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Métricas y Resumen Financiero filtradas por complejo
 app.get('/api/metricas', async (req: Request, res: Response) => {
   try {

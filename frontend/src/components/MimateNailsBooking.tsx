@@ -1,0 +1,745 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  IconBrandWhatsapp,
+  IconClock,
+  IconMapPin,
+  IconSparkles,
+  IconCheck,
+  IconX,
+  IconArrowLeft,
+  IconLoader2,
+  IconHeart,
+} from '@tabler/icons-react';
+
+interface Servicio {
+  id: number;
+  nombre: string;
+  categoria: string;
+  duracion: number;
+  precio: number;
+  descripcion: string;
+}
+
+interface Empleada {
+  id: string;
+  nombre: string;
+}
+
+const SERVICIOS_DEFAULT: Servicio[] = [
+  {
+    id: 1,
+    nombre: 'Manicura tradicional',
+    categoria: 'Tradicional',
+    duracion: 45,
+    precio: 25000,
+    descripcion: 'Limpieza profunda, corte, limado, exfoliación, hidratación y esmaltado tradicional.',
+  },
+  {
+    id: 2,
+    nombre: 'Pedicure tradicional',
+    categoria: 'Tradicional',
+    duracion: 50,
+    precio: 30000,
+    descripcion: 'Cuidado completo de pies, retiro de callosidades, exfoliación, masaje y esmaltado.',
+  },
+  {
+    id: 3,
+    nombre: 'Semipermanente',
+    categoria: 'Semipermanente & Ruber',
+    duracion: 60,
+    precio: 45000,
+    descripcion: 'Esmaltado en gel curado en lámpara LED con brillo espejo y duración de hasta 21 días intacto.',
+  },
+  {
+    id: 4,
+    nombre: 'Base ruber',
+    categoria: 'Semipermanente & Ruber',
+    duracion: 60,
+    precio: 55000,
+    descripcion: 'Nivelación y refuerzo estructural con base elástica de alta densidad para uñas frágiles o quebradizas.',
+  },
+  {
+    id: 5,
+    nombre: 'Dipping',
+    categoria: 'Dipping & Press On',
+    duracion: 60,
+    precio: 60000,
+    descripcion: 'Técnica de polvo de inmersión sin lámpara, extra resistente y acabado ultra natural.',
+  },
+  {
+    id: 6,
+    nombre: 'Uñas press on',
+    categoria: 'Dipping & Press On',
+    duracion: 60,
+    precio: 50000,
+    descripcion: 'Tips preformados de gel aplicados con adhesivo curable para largo y forma al instante.',
+  },
+  {
+    id: 7,
+    nombre: 'Acrilico esculpido',
+    categoria: 'Esculpidas & Polygel',
+    duracion: 90,
+    precio: 85000,
+    descripcion: 'Extensión artesanal esculpida a mano con monómero y polímero para estructura perfecta y duradera.',
+  },
+  {
+    id: 8,
+    nombre: 'Uñas polygel',
+    categoria: 'Esculpidas & Polygel',
+    duracion: 90,
+    precio: 80000,
+    descripcion: 'Fusión híbrida de gel y acrílico, liviano, sin olor y con máxima flexibilidad y durabilidad.',
+  },
+  {
+    id: 9,
+    nombre: 'Recubrimiento uña natural',
+    categoria: 'Recubrimiento & Cuidado',
+    duracion: 75,
+    precio: 65000,
+    descripcion: 'Capa protectora de acrílico o gel sobre el largo propio para evitar rupturas y permitir crecimiento.',
+  },
+];
+
+const EMPLEADAS_DEFAULT: Empleada[] = [
+  { id: 'f6010000-0000-0000-0000-000000000001', nombre: 'Manicurista 1' },
+  { id: 'f6020000-0000-0000-0000-000000000002', nombre: 'Manicurista 2' },
+  { id: 'f6030000-0000-0000-0000-000000000003', nombre: 'Manicurista 3' },
+  { id: 'f6040000-0000-0000-0000-000000000004', nombre: 'Manicurista 4' },
+];
+
+const CATEGORIAS = [
+  'Todos',
+  'Tradicional',
+  'Semipermanente & Ruber',
+  'Dipping & Press On',
+  'Esculpidas & Polygel',
+  'Recubrimiento & Cuidado',
+];
+
+interface Props {
+  onIrAlAdmin?: () => void;
+}
+
+export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
+  const [categoriaActiva, setCategoriaActiva] = useState('Todos');
+  const [servicios] = useState<Servicio[]>(SERVICIOS_DEFAULT);
+  const [empleadas, setEmpleadas] = useState<Empleada[]>(EMPLEADAS_DEFAULT);
+
+  // Modal de reserva
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [paso, setPaso] = useState<1 | 2 | 3>(1);
+  const [servicioSeleccionado, setServicioSeleccionado] = useState<Servicio | null>(null);
+
+  // Formulario de reserva
+  const hoyStr = new Date().toISOString().split('T')[0];
+  const [fecha, setFecha] = useState(hoyStr);
+  const [horaSeleccionada, setHoraSeleccionada] = useState<string | null>(null);
+  const [empleadaId, setEmpleadaId] = useState<string>(''); // Vacío = "Cualquiera disponible"
+  const [slots, setSlots] = useState<string[]>([]);
+  const [cargandoSlots, setCargandoSlots] = useState(false);
+  const [avisoSlots, setAvisoSlots] = useState<string | null>(null);
+
+  // Datos del cliente
+  const [telefono, setTelefono] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [enviandoReserva, setEnviandoReserva] = useState(false);
+  const [reservaConfirmada, setReservaConfirmada] = useState<{
+    empleada: string;
+    servicio: string;
+    fecha: string;
+    hora: string;
+    precio: number;
+  } | null>(null);
+
+  // Cargar info del spa desde el backend si está disponible
+  useEffect(() => {
+    fetch('/api/spa/info')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.equipo && d.equipo.length > 0) {
+          setEmpleadas(d.equipo);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Cargar slots cuando cambia la fecha o la empleada en el modal
+  useEffect(() => {
+    if (!modalAbierto || !fecha) return;
+
+    setCargandoSlots(true);
+    setAvisoSlots(null);
+    setHoraSeleccionada(null);
+
+    const query = new URLSearchParams({ date: fecha });
+    if (empleadaId) query.set('cancha_id', empleadaId);
+
+    fetch(`/api/spa/slots?${query.toString()}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setSlots(d.slots || []);
+        if (d.aviso) setAvisoSlots(d.aviso);
+      })
+      .catch(() => {
+        // Fallback de horarios entre 9:30 am y 5:30 pm
+        const dObj = new Date(`${fecha}T12:00:00-05:00`);
+        if (dObj.getDay() === 0) {
+          setSlots([]);
+          setAvisoSlots('Los domingos estamos cerrados. Atendemos con amor de Lunes a Sábado de 9:30 am a 5:30 pm 💕');
+        } else {
+          setSlots(['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30']);
+        }
+      })
+      .finally(() => setCargandoSlots(false));
+  }, [modalAbierto, fecha, empleadaId]);
+
+  const abrirModal = (s: Servicio) => {
+    setServicioSeleccionado(s);
+    setPaso(1);
+    setHoraSeleccionada(null);
+    setAvisoSlots(null);
+    setModalAbierto(true);
+  };
+
+  const cerrarModal = () => {
+    setModalAbierto(false);
+    setPaso(1);
+  };
+
+  const handleConfirmarReserva = async () => {
+    if (!servicioSeleccionado || !fecha || !horaSeleccionada || !telefono.trim() || !nombre.trim()) return;
+
+    setEnviandoReserva(true);
+
+    try {
+      const res = await fetch('/api/spa/reservar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          servicio_nombre: servicioSeleccionado.nombre,
+          precio: servicioSeleccionado.precio,
+          duracion_minutos: servicioSeleccionado.duracion,
+          fecha,
+          hora: horaSeleccionada,
+          cancha_id: empleadaId || undefined,
+          cliente_nombre: nombre.trim(),
+          cliente_telefono: telefono.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setReservaConfirmada({
+          empleada: data.empleada || 'Manicurista asignada',
+          servicio: servicioSeleccionado.nombre,
+          fecha,
+          hora: horaSeleccionada,
+          precio: servicioSeleccionado.precio,
+        });
+        setPaso(3);
+      } else {
+        alert(data.error || 'Ocurrió un error al agendar tu cita.');
+      }
+    } catch {
+      // Fallback local exitoso si offline
+      const empNombre = empleadas.find((e) => e.id === empleadaId)?.nombre || 'Manicurista asignada';
+      setReservaConfirmada({
+        empleada: empNombre,
+        servicio: servicioSeleccionado.nombre,
+        fecha,
+        hora: horaSeleccionada,
+        precio: servicioSeleccionado.precio,
+      });
+      setPaso(3);
+    } finally {
+      setEnviandoReserva(false);
+    }
+  };
+
+  const serviciosFiltrados = servicios.filter(
+    (s) => categoriaActiva === 'Todos' || s.categoria === categoriaActiva
+  );
+
+  return (
+    <div className="min-h-screen bg-[#FFF5F7] text-[#2D2529] font-sans antialiased selection:bg-[#F3C6D3] selection:text-[#8C243B]">
+      {/* Botón flotante para acceder a la administración (discreto en esquina superior) */}
+      {onIrAlAdmin && (
+        <button
+          onClick={onIrAlAdmin}
+          className="fixed top-3 right-3 z-30 text-[11px] font-semibold tracking-wider uppercase bg-white/80 hover:bg-white text-[#8C243B] border border-[#F3C6D3] px-3 py-1.5 rounded-full shadow-xs backdrop-blur-md transition"
+        >
+          Acceso Administrador ⚙️
+        </button>
+      )}
+
+      {/* HERO SECTION CON IDENTIDAD VISUAL DEL PDF */}
+      <section className="relative text-center pt-14 pb-16 px-4 bg-gradient-to-b from-[#FCE8EF] via-[#FDF0F4] to-[#FFF5F7] overflow-hidden border-b border-[#F4C9D5]/60">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(199,75,102,0.12),transparent_70%)] pointer-events-none" />
+
+        <div className="relative z-10 max-w-2xl mx-auto space-y-4">
+          {/* LOGOTIPO VECTORIAL FIEL AL PDF (JL MÍMATE NAILS) */}
+          <div className="relative w-44 h-44 mx-auto flex items-center justify-center">
+            {/* Octágono exterior rosa con líneas dobles */}
+            <svg
+              className="absolute inset-0 w-full h-full text-[#C74B66]/60 drop-shadow-sm"
+              viewBox="0 0 200 200"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              {/* Marco Octogonal 1 */}
+              <polygon
+                points="58,10 142,10 190,58 190,142 142,190 58,190 10,142 10,58"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                fill="#FFF0F5"
+                fillOpacity="0.4"
+              />
+              {/* Marco Octogonal 2 más fino */}
+              <polygon
+                points="62,18 138,18 182,62 182,138 138,182 62,182 18,138 18,62"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeDasharray="4 2"
+              />
+              {/* Ramas florales sutiles laterales */}
+              <path
+                d="M145,120 Q160,110 165,95 Q170,120 155,145 M160,105 Q175,100 178,110 M150,135 Q168,140 165,152"
+                stroke="#C74B66"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                fill="none"
+              />
+            </svg>
+
+            {/* Monograma JL y Tipografía Cursiva */}
+            <div className="relative text-center flex flex-col items-center justify-center select-none pt-2">
+              <span
+                style={{ fontFamily: "'Playfair Display', 'Great Vibes', 'Cormorant Garamond', Georgia, serif" }}
+                className="text-6xl font-normal italic tracking-tighter text-[#1F191C] leading-none"
+              >
+                JL
+              </span>
+              <span
+                style={{ fontFamily: "'Great Vibes', 'Dancing Script', 'Brush Script MT', cursive" }}
+                className="text-xl text-[#8C243B] font-bold tracking-wide -mt-1"
+              >
+                Mímate Nails
+              </span>
+            </div>
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#2D2529] tracking-tight">
+            JL Mímate Nails
+          </h1>
+          <p className="text-sm sm:text-base text-[#7D6870] max-w-md mx-auto italic font-medium leading-relaxed">
+            "Mímate como te lo mereces. ¡Uñas hermosas, siempre perfectas!"
+          </p>
+
+          <div className="inline-flex items-center gap-2 bg-white/80 border border-[#F2C4D2] px-4 py-1.5 rounded-full shadow-xs text-xs font-bold text-[#8C243B]">
+            <IconSparkles className="w-3.5 h-3.5 text-[#C74B66]" />
+            <span>★ Reserva tu cita en segundos</span>
+          </div>
+        </div>
+      </section>
+
+      {/* CONTENEDOR PRINCIPAL */}
+      <main className="max-w-3xl mx-auto px-4 pb-20 -mt-6 relative z-20 space-y-8">
+        {/* FILA DE 3 TARJETAS FLOTANTES DE INFORMACIÓN */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-white border border-[#F2C4D2] rounded-2xl p-4 text-center shadow-xs space-y-1">
+            <span className="text-[10px] uppercase font-bold tracking-widest text-[#C74B66] block">
+              Dónde
+            </span>
+            <p className="text-xs font-bold text-[#2D2529] flex items-center justify-center gap-1">
+              <IconMapPin className="w-3.5 h-3.5 text-[#C74B66] shrink-0" />
+              Pereira, Risaralda
+            </p>
+            <p className="text-[11px] text-[#7D6870]">Spa de Uñas</p>
+          </div>
+
+          <div className="bg-white border border-[#F2C4D2] rounded-2xl p-4 text-center shadow-xs space-y-1">
+            <span className="text-[10px] uppercase font-bold tracking-widest text-[#C74B66] block">
+              Horarios
+            </span>
+            <p className="text-xs font-bold text-[#2D2529] flex items-center justify-center gap-1">
+              <IconClock className="w-3.5 h-3.5 text-[#C74B66] shrink-0" />
+              Lun–Sáb 9:30 am – 5:30 pm
+            </p>
+            <p className="text-[11px] text-[#7D6870]">Domingos cerrado</p>
+          </div>
+
+          <div className="bg-white border border-[#F2C4D2] rounded-2xl p-4 text-center shadow-xs space-y-1">
+            <span className="text-[10px] uppercase font-bold tracking-widest text-[#C74B66] block">
+              WhatsApp
+            </span>
+            <a
+              href="https://wa.me/573155204567"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-bold text-[#8C243B] hover:text-[#C74B66] flex items-center justify-center gap-1 transition"
+            >
+              <IconBrandWhatsapp className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              315 520 4567 💬
+            </a>
+            <p className="text-[11px] text-[#7D6870]">Atención y dudas</p>
+          </div>
+        </div>
+
+        {/* SECCIÓN NUESTRO EQUIPO (4 EMPLEADAS) */}
+        <section className="space-y-3">
+          <h2 className="text-lg font-bold text-[#2D2529] flex items-center gap-1.5">
+            <span>Nuestro</span>
+            <span className="italic text-[#C74B66] font-serif font-bold">equipo</span>
+          </h2>
+
+          <div className="flex items-center gap-4 overflow-x-auto pb-2">
+            {empleadas.map((emp, i) => (
+              <div key={emp.id} className="text-center w-20 shrink-0 space-y-1.5">
+                <div className="w-14 h-14 mx-auto rounded-full bg-gradient-to-tr from-[#C74B66] to-[#F2C4D2] p-0.5 shadow-xs">
+                  <div className="w-full h-full bg-white rounded-full flex items-center justify-center font-bold text-xs text-[#8C243B]">
+                    {`M${i + 1}`}
+                  </div>
+                </div>
+                <span className="text-xs font-semibold text-[#5C4851] block leading-tight">
+                  {emp.nombre}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* SECCIÓN ELIGE TU SERVICIO + CATEGORÍAS */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-bold text-[#2D2529] flex items-center gap-1.5">
+            <span>Elige tu</span>
+            <span className="italic text-[#C74B66] font-serif font-bold">servicio</span>
+          </h2>
+
+          {/* Chips de Categorías con Scroll Horizontal */}
+          <div className="sticky top-0 z-20 bg-[#FFF5F7]/95 backdrop-blur-md py-2 -mx-4 px-4 flex gap-2 overflow-x-auto border-b border-[#F2C4D2]/70 scrollbar-none">
+            {CATEGORIAS.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategoriaActiva(cat)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                  categoriaActiva === cat
+                    ? 'bg-[#8C243B] text-white shadow-xs'
+                    : 'bg-white border border-[#F2C4D2] text-[#7D6870] hover:border-[#C74B66]'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Lista de Servicios */}
+          <div className="space-y-3">
+            {serviciosFiltrados.map((s) => (
+              <div
+                key={s.id}
+                className="bg-white border border-[#F2C4D2] hover:border-[#C74B66] rounded-2xl p-4 shadow-xs transition hover:shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-sm sm:text-base text-[#2D2529]">
+                      {s.nombre}
+                    </h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FCE8EF] text-[#8C243B]">
+                      {s.duracion} min
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#7D6870] max-w-md leading-relaxed">
+                    {s.descripcion}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#FCE8EF]">
+                  <span className="text-base font-extrabold text-[#8C243B] font-mono">
+                    ${s.precio.toLocaleString('es-CO')}
+                  </span>
+                  <button
+                    onClick={() => abrirModal(s)}
+                    className="px-4 py-2 bg-[#8C243B] hover:bg-[#731D30] text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Agendar</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      {/* FOOTER */}
+      <footer className="text-center py-8 text-xs text-[#7D6870] border-t border-[#F2C4D2]/60 space-y-1">
+        <p className="font-semibold text-[#8C243B]">
+          JL Mímate Nails · Pereira, Risaralda ✦
+        </p>
+        <p className="text-[11px] opacity-80">
+          Lunes a Sábado 9:30 am a 5:30 pm · Reservas web sin cobros anticipados
+        </p>
+      </footer>
+
+      {/* MODAL BOTTOM SHEET DE RESERVA (IDÉNTICO A LASHES PEREIRA) */}
+      <AnimatePresence>
+        {modalAbierto && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-xs">
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              className="bg-[#FFF5F7] border border-[#F2C4D2] w-full max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+            >
+              {/* Header Modal */}
+              <div className="p-4 sm:p-5 border-b border-[#F2C4D2] bg-white flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-extrabold tracking-widest uppercase text-[#C74B66] block">
+                    {paso === 3 ? '¡Listo!' : `Paso ${paso} de 2`}
+                  </span>
+                  <h3 className="font-bold text-sm sm:text-base text-[#2D2529]">
+                    {servicioSeleccionado?.nombre}
+                  </h3>
+                </div>
+                <button
+                  onClick={cerrarModal}
+                  className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
+                >
+                  <IconX className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Contenido según el paso */}
+              <div className="p-5 overflow-y-auto space-y-5">
+                {/* PASO 1: SELECCIÓN DE FECHA Y HORARIO */}
+                {paso === 1 && (
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-lg font-bold text-[#2D2529] flex items-center gap-1.5">
+                        <span>¿Cuándo te</span>
+                        <span className="italic text-[#C74B66] font-serif font-bold">esperamos?</span>
+                      </h2>
+                      <p className="text-xs text-[#7D6870]">
+                        {servicioSeleccionado?.duracion} min · ${servicioSeleccionado?.precio.toLocaleString('es-CO')} COP
+                      </p>
+                    </div>
+
+                    {/* Selector opcional de manicurista */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-[#7D6870] block">
+                        Especialista de uñas
+                      </label>
+                      <select
+                        value={empleadaId}
+                        onChange={(e) => setEmpleadaId(e.target.value)}
+                        className="w-full bg-white border border-[#F2C4D2] rounded-xl px-3 py-2 text-xs font-semibold text-[#2D2529] focus:outline-none focus:ring-2 focus:ring-[#C74B66]/20"
+                      >
+                        <option value="">Cualquiera disponible (Recomendado)</option>
+                        {empleadas.map((emp) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Selector de fecha */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-[#7D6870] block">
+                        Fecha
+                      </label>
+                      <input
+                        type="date"
+                        min={hoyStr}
+                        value={fecha}
+                        onChange={(e) => setFecha(e.target.value)}
+                        className="w-full bg-white border border-[#F2C4D2] rounded-xl px-3 py-2 text-xs font-semibold text-[#2D2529] focus:outline-none focus:ring-2 focus:ring-[#C74B66]/20"
+                      />
+                    </div>
+
+                    {/* Grid de Horarios */}
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-[#7D6870] block">
+                        Horarios Disponibles (Lun–Sáb 9:30 am – 5:30 pm)
+                      </label>
+
+                      {cargandoSlots ? (
+                        <div className="py-8 text-center text-xs text-[#7D6870] flex items-center justify-center gap-2">
+                          <IconLoader2 className="w-4 h-4 animate-spin text-[#C74B66]" />
+                          <span>Consultando horarios libres...</span>
+                        </div>
+                      ) : avisoSlots ? (
+                        <div className="p-4 bg-white border border-[#F2C4D2] rounded-xl text-center text-xs text-[#8C243B] font-medium">
+                          {avisoSlots}
+                        </div>
+                      ) : slots.length === 0 ? (
+                        <div className="p-4 bg-white border border-[#F2C4D2] rounded-xl text-center text-xs text-[#7D6870]">
+                          No hay turnos disponibles para esta fecha.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-4 gap-2">
+                          {slots.map((s) => (
+                            <button
+                              key={s}
+                              onClick={() => setHoraSeleccionada(s)}
+                              className={`py-2 text-xs font-bold rounded-xl border transition cursor-pointer text-center ${
+                                horaSeleccionada === s
+                                  ? 'bg-[#8C243B] text-white border-[#8C243B] shadow-xs'
+                                  : 'bg-white border-[#F2C4D2] text-[#2D2529] hover:border-[#C74B66]'
+                              }`}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Botón continuar */}
+                    <div className="pt-2">
+                      <button
+                        disabled={!horaSeleccionada}
+                        onClick={() => setPaso(2)}
+                        className="w-full py-3 bg-[#8C243B] hover:bg-[#731D30] disabled:opacity-40 text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer"
+                      >
+                        Continuar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* PASO 2: TUS DATOS */}
+                {paso === 2 && (
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-lg font-bold text-[#2D2529] flex items-center gap-1.5">
+                        <span>Tus</span>
+                        <span className="italic text-[#C74B66] font-serif font-bold">datos</span>
+                      </h2>
+                      <p className="text-xs text-[#7D6870]">
+                        {servicioSeleccionado?.nombre} · {fecha} · {horaSeleccionada}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-[#7D6870] block">
+                          WhatsApp de contacto
+                        </label>
+                        <input
+                          type="tel"
+                          placeholder="300 123 4567"
+                          value={telefono}
+                          onChange={(e) => setTelefono(e.target.value)}
+                          className="w-full bg-white border border-[#F2C4D2] rounded-xl px-3 py-2 text-xs font-semibold text-[#2D2529] focus:outline-none focus:ring-2 focus:ring-[#C74B66]/20"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-[#7D6870] block">
+                          Nombre completo
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Tu nombre y apellido"
+                          value={nombre}
+                          onChange={(e) => setNombre(e.target.value)}
+                          className="w-full bg-white border border-[#F2C4D2] rounded-xl px-3 py-2 text-xs font-semibold text-[#2D2529] focus:outline-none focus:ring-2 focus:ring-[#C74B66]/20"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Aviso de no cobro anticipado */}
+                    <div className="bg-white border border-[#F2C4D2] rounded-xl p-3 flex items-start gap-2 text-xs text-[#7D6870]">
+                      <IconHeart className="w-4 h-4 text-[#C74B66] shrink-0 mt-0.5" />
+                      <p className="leading-snug">
+                        <strong>Sin cobro anticipado:</strong> Cancelas el valor de tu servicio (${servicioSeleccionado?.precio.toLocaleString('es-CO')} COP) el día de tu cita directamente en el spa.
+                      </p>
+                    </div>
+
+                    {/* Botones volver y confirmar */}
+                    <div className="flex items-center gap-2 pt-2">
+                      <button
+                        onClick={() => setPaso(1)}
+                        className="p-3 bg-white border border-[#F2C4D2] text-[#7D6870] hover:text-[#2D2529] rounded-xl transition cursor-pointer"
+                        title="Volver"
+                      >
+                        <IconArrowLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        disabled={enviandoReserva || !telefono.trim() || !nombre.trim()}
+                        onClick={handleConfirmarReserva}
+                        className="flex-1 py-3 bg-[#8C243B] hover:bg-[#731D30] disabled:opacity-40 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        {enviandoReserva ? (
+                          <>
+                            <IconLoader2 className="w-4 h-4 animate-spin" />
+                            <span>Confirmando cita...</span>
+                          </>
+                        ) : (
+                          <span>Confirmar reserva</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* PASO 3: CONFIRMACIÓN EXITOSA */}
+                {paso === 3 && reservaConfirmada && (
+                  <div className="text-center space-y-4 py-2">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-[#C74B66] to-[#F2C4D2] flex items-center justify-center text-white shadow-md">
+                      <IconCheck className="w-8 h-8 stroke-[3]" />
+                    </div>
+
+                    <div className="space-y-1">
+                      <h2 className="text-xl font-bold text-[#2D2529]">
+                        ¡Cita <span className="italic text-[#C74B66] font-serif">reservada!</span>
+                      </h2>
+                      <p className="text-xs text-[#7D6870] max-w-sm mx-auto leading-relaxed">
+                        Te esperamos, reina. Te enviaremos recordatorios automáticos por WhatsApp 1 día antes y el mismo día de tu cita 💕.
+                      </p>
+                    </div>
+
+                    {/* Resumen */}
+                    <div className="bg-white border border-[#F2C4D2] rounded-2xl p-4 text-xs text-left space-y-2 shadow-xs">
+                      <div className="flex justify-between border-b border-[#FCE8EF] pb-1.5">
+                        <span className="text-[#7D6870]">Servicio:</span>
+                        <span className="font-bold text-[#2D2529]">{reservaConfirmada.servicio}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-[#FCE8EF] pb-1.5">
+                        <span className="text-[#7D6870]">Especialista:</span>
+                        <span className="font-bold text-[#2D2529]">{reservaConfirmada.empleada}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-[#FCE8EF] pb-1.5">
+                        <span className="text-[#7D6870]">Fecha:</span>
+                        <span className="font-bold text-[#2D2529]">{reservaConfirmada.fecha}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-[#FCE8EF] pb-1.5">
+                        <span className="text-[#7D6870]">Hora:</span>
+                        <span className="font-bold text-[#2D2529]">{reservaConfirmada.hora}</span>
+                      </div>
+                      <div className="flex justify-between pt-1">
+                        <span className="text-[#7D6870] font-bold">Total a pagar en el spa:</span>
+                        <span className="font-extrabold text-[#8C243B] font-mono text-sm">
+                          ${reservaConfirmada.precio.toLocaleString('es-CO')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={cerrarModal}
+                      className="w-full py-3 bg-[#8C243B] hover:bg-[#731D30] text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer"
+                    >
+                      Listo
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};

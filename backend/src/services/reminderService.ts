@@ -3,64 +3,167 @@ import axios from 'axios';
 
 export class ReminderService {
   /**
-   * Revisa las reservas de las próximas 2 a 3 horas y despacha recordatorios por WhatsApp
+   * Ejecuta la rutina periódica de recordatorios:
+   * 1. Recordatorio 1 día antes de la cita
+   * 2. Recordatorio el mismo día de la cita
+   * 3. Recordatorio próximo de 2 a 3 horas para partidos deportivos
    */
   static async procesarRecordatoriosProximos() {
+    const resDiaAntes = await this.procesarRecordatoriosDiaAntes();
+    const resMismoDia = await this.procesarRecordatoriosMismoDia();
+
+    return {
+      enviadosDiaAntes: resDiaAntes.enviados,
+      enviadosMismoDia: resMismoDia.enviados,
+      totalEnviados: resDiaAntes.enviados + resMismoDia.enviados,
+    };
+  }
+
+  /**
+   * Envía recordatorio 1 DÍA ANTES de la cita/reserva (franja de 18 a 36 horas previas)
+   */
+  static async procesarRecordatoriosDiaAntes() {
     const ahora = new Date();
-    const limiteTresHoras = new Date(ahora.getTime() + 3 * 60 * 60 * 1000).toISOString();
-    const ahoraIso = ahora.toISOString();
+    const desdeIso = new Date(ahora.getTime() + 18 * 60 * 60 * 1000).toISOString();
+    const hastaIso = new Date(ahora.getTime() + 36 * 60 * 60 * 1000).toISOString();
 
     const { data: reservas, error } = await supabase
       .from('reservas')
-      .select('*, canchas(nombre), clientes(nombre, telefono_wa)')
+      .select('*, canchas!inner(*, complejos!inner(*)), clientes(*)')
       .eq('estado', 'confirmada')
-      .eq('recordatorio_enviado', false)
-      .gte('fecha_inicio', ahoraIso)
-      .lte('fecha_inicio', limiteTresHoras);
+      .gte('fecha_inicio', desdeIso)
+      .lte('fecha_inicio', hastaIso);
 
-    if (error) {
-      console.error('Error buscando reservas para recordatorio:', error);
-      return { enviados: 0, errores: 1, mensaje: error.message };
-    }
+    if (error || !reservas) return { enviados: 0 };
 
-    if (!reservas || reservas.length === 0) {
-      return { enviados: 0, errores: 0, mensaje: 'No hay partidos próximos pendientes de recordatorio' };
-    }
-
-    let enviadosCount = 0;
-
+    let enviados = 0;
     for (const r of reservas) {
-      const clienteNombre = r.clientes?.nombre || 'Deportista';
-      const telefono = r.clientes?.telefono_wa;
-      const canchaNombre = r.canchas?.nombre || 'Cancha Deportiva';
-      const horaInicio = r.fecha_inicio.split('T')[1].slice(0, 5);
-      const horaFin = r.fecha_fin.split('T')[1].slice(0, 5);
+      const notas = r.notas || '';
+      if (notas.includes('[REC_1_DIA]')) continue;
 
+      const cliente = r.clientes as any;
+      const cancha = r.canchas as any;
+      const complejo = cancha?.complejos as any;
+      const telefono = cliente?.telefono_wa;
       if (!telefono) continue;
 
-      const mensaje = `🔔 *RECORDATORIO DE TU PARTIDO HOY*\n\n` +
-        `¡Hola ${clienteNombre}! Te recordamos tu reserva deportiva programada para hoy:\n\n` +
-        `🏟️ Cancha: *${canchaNombre}*\n` +
-        `⏰ Horario: *${horaInicio} a ${horaFin}*\n\n` +
-        `👟 Te recomendamos llegar con tu equipo *10 minutos antes* para ingresar puntualmente a la cancha.\n` +
-        `¡Que disfruten un gran partido! ⚽🎾`;
+      const nombreCliente = cliente.nombre || 'Cliente';
+      const fechaCita = new Date(r.fecha_inicio).toLocaleDateString('es-CO', {
+        weekday: 'long',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+      const horaInicio = r.fecha_inicio.split('T')[1].slice(0, 5);
 
-      await this.enviarWhatsApp(telefono, mensaje);
+      let mensaje = '';
+
+      if (complejo?.slug === 'mimate-nails' || complejo?.tipo_negocio === 'belleza_unas') {
+        let servicio = 'tu servicio de uñas';
+        const matchSvc = notas.match(/Servicio:\s*([^|[\n]+)/i);
+        if (matchSvc && matchSvc[1]) servicio = matchSvc[1].trim();
+
+        mensaje =
+          `💅✨ *RECORDATORIO DE TU CITA MAÑANA - JL MÍMATE NAILS* 🌸\n\n` +
+          `¡Hola *${nombreCliente}*! Te recordamos con mucho cariño tu cita programada para *mañana*:\n\n` +
+          `💅 *Servicio:* ${servicio}\n` +
+          `👩‍🎨 *Especialista:* ${cancha.nombre}\n` +
+          `📅 *Fecha:* ${fechaCita}\n` +
+          `⏰ *Hora:* ${horaInicio}\n\n` +
+          `📍 Te esperamos en nuestro Spa de Uñas en Pereira.\n` +
+          `✨ *Nota:* Recuerda que cancelas el valor total en el spa (sin cobros anticipados).\n` +
+          `Si necesitas reprogramar o tienes alguna pregunta, respóndenos a este mensaje. ¡Nos vemos mañana para consentirte reina! 💕`;
+      } else {
+        mensaje =
+          `🔔 *RECORDATORIO DE TU RESERVA MAÑANA*\n\n` +
+          `¡Hola *${nombreCliente}*! Te recordamos tu cita programada para mañana en *${complejo.nombre}*:\n\n` +
+          `🏟️ *Espacio / Recurso:* ${cancha.nombre}\n` +
+          `📅 *Fecha:* ${fechaCita}\n` +
+          `⏰ *Hora:* ${horaInicio}\n\n` +
+          `¡Te esperamos puntualmente! Si tienes dudas, contáctanos por este medio.`;
+      }
+
+      await this.enviarWhatsApp(telefono, mensaje, complejo?.whatsapp_token, complejo?.whatsapp_phone_number_id);
 
       await supabase
         .from('reservas')
-        .update({ recordatorio_enviado: true })
+        .update({ notas: `${notas} [REC_1_DIA]`.trim() })
         .eq('id', r.id);
 
-      enviadosCount++;
+      enviados++;
     }
 
-    return { enviados: enviadosCount, errores: 0 };
+    return { enviados };
   }
 
-  private static async enviarWhatsApp(to: string, message: string) {
-    const token = process.env.WHATSAPP_TOKEN;
-    const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  /**
+   * Envía recordatorio EL MISMO DÍA de la cita/reserva (franja de próximas 1 a 6 horas del día)
+   */
+  static async procesarRecordatoriosMismoDia() {
+    const ahora = new Date();
+    const ahoraIso = ahora.toISOString();
+    const limiteSeisHoras = new Date(ahora.getTime() + 6 * 60 * 60 * 1000).toISOString();
+
+    const { data: reservas, error } = await supabase
+      .from('reservas')
+      .select('*, canchas!inner(*, complejos!inner(*)), clientes(*)')
+      .eq('estado', 'confirmada')
+      .gte('fecha_inicio', ahoraIso)
+      .lte('fecha_inicio', limiteSeisHoras);
+
+    if (error || !reservas) return { enviados: 0 };
+
+    let enviados = 0;
+    for (const r of reservas) {
+      const notas = r.notas || '';
+      if (notas.includes('[REC_MISMO_DIA]')) continue;
+
+      const cliente = r.clientes as any;
+      const cancha = r.canchas as any;
+      const complejo = cancha?.complejos as any;
+      const telefono = cliente?.telefono_wa;
+      if (!telefono) continue;
+
+      const nombreCliente = cliente.nombre || 'Cliente';
+      const horaInicio = r.fecha_inicio.split('T')[1].slice(0, 5);
+
+      let mensaje = '';
+
+      if (complejo?.slug === 'mimate-nails' || complejo?.tipo_negocio === 'belleza_unas') {
+        let servicio = 'tu cita de uñas';
+        const matchSvc = notas.match(/Servicio:\s*([^|[\n]+)/i);
+        if (matchSvc && matchSvc[1]) servicio = matchSvc[1].trim();
+
+        mensaje =
+          `🌸 *¡HOY ES TU CITA EN JL MÍMATE NAILS!* 💅✨\n\n` +
+          `¡Hola *${nombreCliente}*! Te esperamos hoy a las *${horaInicio}* para tu cita:\n\n` +
+          `💅 *Servicio:* ${servicio}\n` +
+          `👩‍🎨 *Atención con:* ${cancha.nombre}\n` +
+          `⏰ *Hora:* ${horaInicio}\n\n` +
+          `Te recomendamos llegar 5 minuticos antes. ¡Todo nuestro equipo está listo para dejar tus uñas impecables y hermosas! 💕🌸`;
+      } else {
+        mensaje =
+          `🔔 *RECORDATORIO DE TU TURNO HOY*\n\n` +
+          `¡Hola *${nombreCliente}*! Te recordamos tu cita hoy en *${complejo.nombre}* a las *${horaInicio}* con ${cancha.nombre}.\n\n` +
+          `Te esperamos puntualmente. ¡Que tengas un excelente día!`;
+      }
+
+      await this.enviarWhatsApp(telefono, mensaje, complejo?.whatsapp_token, complejo?.whatsapp_phone_number_id);
+
+      await supabase
+        .from('reservas')
+        .update({ notas: `${notas} [REC_MISMO_DIA]`.trim() })
+        .eq('id', r.id);
+
+      enviados++;
+    }
+
+    return { enviados };
+  }
+
+  private static async enviarWhatsApp(to: string, message: string, tokenOverride?: string, phoneIdOverride?: string) {
+    const token = tokenOverride || process.env.WHATSAPP_TOKEN;
+    const phoneId = phoneIdOverride || process.env.WHATSAPP_PHONE_NUMBER_ID;
 
     if (!token || !phoneId) {
       console.log(`[RECORDATORIO AUTOMÁTICO WHATSAPP a ${to}]:\n${message}`);
@@ -72,6 +175,7 @@ export class ReminderService {
         `https://graph.facebook.com/v21.0/${phoneId}/messages`,
         {
           messaging_product: 'whatsapp',
+          recipient_type: 'individual',
           to,
           type: 'text',
           text: { body: message },
