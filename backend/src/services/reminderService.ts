@@ -65,32 +65,13 @@ export class ReminderService {
         hour12: false,
       });
 
-      let mensaje = '';
-
-      if (complejo?.slug === 'mimate-nails' || complejo?.tipo_negocio === 'belleza_unas') {
-        let servicio = 'tu servicio de uñas';
-        const matchSvc = notas.match(/Servicio:\s*([^|[\n]+)/i);
-        if (matchSvc && matchSvc[1]) servicio = matchSvc[1].trim();
-
-        mensaje =
-          `💅✨ *RECORDATORIO DE TU CITA MAÑANA - JL MÍMATE NAILS* 🌸\n\n` +
-          `¡Hola *${nombreCliente}*! Te recordamos con mucho cariño tu cita programada para *mañana*:\n\n` +
-          `💅 *Servicio:* ${servicio}\n` +
-          `👩‍🎨 *Especialista:* ${cancha.nombre}\n` +
-          `📅 *Fecha:* ${fechaCita}\n` +
-          `⏰ *Hora:* ${horaInicio}\n\n` +
-          `📍 *Lugar:* Pereira, Cuba (Calle 66 bis #26-57)\n` +
-          `✨ *Nota:* Recuerda que cancelas el valor en el spa (sin cobros anticipados).\n` +
-          `Si necesitas reprogramar o tienes alguna pregunta, respóndenos a este mensaje. ¡Nos vemos mañana para consentirte reina! 💕`;
-      } else {
-        mensaje =
-          `🔔 *RECORDATORIO DE TU RESERVA MAÑANA*\n\n` +
-          `¡Hola *${nombreCliente}*! Te recordamos tu cita programada para mañana en *${complejo.nombre}*:\n\n` +
-          `🏟️ *Espacio / Recurso:* ${cancha.nombre}\n` +
-          `📅 *Fecha:* ${fechaCita}\n` +
-          `⏰ *Hora:* ${horaInicio}\n\n` +
-          `¡Te esperamos puntualmente! Si tienes dudas, contáctanos por este medio.`;
-      }
+      const mensaje =
+        `🔔 *RECORDATORIO DE TU RESERVA MAÑANA*\n\n` +
+        `¡Hola *${nombreCliente}*! Te recordamos tu cita programada para mañana en *${complejo.nombre}*:\n\n` +
+        `🏟️ *Espacio / Recurso:* ${cancha.nombre}\n` +
+        `📅 *Fecha:* ${fechaCita}\n` +
+        `⏰ *Hora:* ${horaInicio}\n\n` +
+        `¡Te esperamos puntualmente! Si tienes dudas, contáctanos por este medio.`;
 
       await this.enviarWhatsApp(telefono, mensaje, complejo?.whatsapp_token, complejo?.whatsapp_phone_number_id);
 
@@ -130,10 +111,6 @@ export class ReminderService {
       const cliente = r.clientes as any;
       const cancha = r.canchas as any;
       const complejo = cancha?.complejos as any;
-      // Para JL Mímate Nails (Spa de Uñas), el recordatorio se realiza ÚNICAMENTE 1 día antes
-      if (complejo?.slug === 'mimate-nails' || complejo?.tipo_negocio === 'belleza_unas') {
-        continue;
-      }
 
       const telefono = cliente?.telefono_wa;
       if (!telefono) continue;
