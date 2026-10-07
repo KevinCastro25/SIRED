@@ -1,6 +1,7 @@
 import { BookingService, Complejo, Cancha, HorarioDisponible } from '../services/bookingService.js';
 import { ReceiptVerificationService } from '../services/receiptVerificationService.js';
 import { AIReceptionistService } from '../services/aiReceptionistService.js';
+import { NLUIntentService } from '../services/nluIntentService.js';
 import { supabase } from '../config/supabase.js';
 
 export interface InteractiveRow {
@@ -96,7 +97,38 @@ export class WhatsAppFlow {
         return await this.manejarFlujoPedidos(telefono, texto, input, session, complejo, nombrePush, mediaId, mediaType);
       }
 
-      // 2. FLUJO DE RESERVAS Y CITAS (DEPORTES, BARBERÍA, SPA)
+      // 2. COMPRENSIÓN NATURAL DE CONTEXTO GLOBAL (Primer mensaje, segundo mensaje o en cualquier paso)
+      const esComandoSistema = input.startsWith('cancha_') ||
+        input.startsWith('fecha_') ||
+        input.startsWith('hora_') ||
+        input.startsWith('hora2_') ||
+        input === 'contacto_asesor' ||
+        input === 'menu' ||
+        input === 'reiniciar' ||
+        input === 'cancelar';
+
+      const esSoloSaludo = ['hola', 'buenas', 'buen dia', 'buenos dias', 'buenas tardes'].includes(input);
+
+      if (!mediaId && !esComandoSistema && !esSoloSaludo) {
+        if (!session.canchasDisponibles || session.canchasDisponibles.length === 0) {
+          session.canchasDisponibles = await BookingService.getCanchas(complejo.id);
+        }
+
+        const respuestaContexto = await this.manejarContextoNatural(
+          telefono,
+          texto,
+          input,
+          session,
+          complejo,
+          nombrePush
+        );
+
+        if (respuestaContexto) {
+          return respuestaContexto;
+        }
+      }
+
+      // 3. FLUJO GUIADO DE RESERVAS Y CITAS (DEPORTES, BARBERÍA, SPA)
       switch (session.paso) {
         case 'INICIO':
           return await this.manejarInicio(telefono, session, complejo, nombrePush, texto);
@@ -125,6 +157,162 @@ export class WhatsAppFlow {
         texto: '👋 ¡Hola! Ocurrió una pequeña interrupción en nuestro sistema. Por favor escribe *HOLA* o *MENU* para continuar.',
       };
     }
+  }
+
+  /**
+   * Procesa comprensión de lenguaje natural para reservas y citas en cualquier momento
+   */
+  private static async manejarContextoNatural(
+    telefono: string,
+    texto: string,
+    input: string,
+    session: UserSession,
+    complejo: Complejo,
+    nombrePush?: string
+  ): Promise<BotResponse | null> {
+    const canchas = session.canchasDisponibles || (await BookingService.getCanchas(complejo.id));
+    session.canchasDisponibles = canchas;
+
+    const ctx = await NLUIntentService.extraerContexto(texto, complejo, canchas);
+    if (!ctx.esContextual) {
+      return null;
+    }
+
+    if (ctx.intencion === 'RESERVA') {
+      await BookingService.getOrCreateCliente(telefono, nombrePush);
+
+      // Determinar cancha
+      let cancha = ctx.cancha || session.canchaSeleccionada;
+      if (!cancha && canchas.length === 1) {
+        cancha = canchas[0];
+      }
+
+      // Determinar fecha
+      let fecha = ctx.fecha || session.fechaSeleccionada;
+      if (!fecha && ctx.hora) {
+        fecha = NLUIntentService.formatearIso(NLUIntentService.getFechaHoraColombia());
+      }
+
+      const hora = ctx.hora;
+      const duracionHoras = ctx.duracionHoras || 1;
+
+      // CASO 1: Cancha + Fecha + Hora
+      if (cancha && fecha && hora) {
+        session.canchaSeleccionada = cancha;
+        session.fechaSeleccionada = fecha;
+
+        const horarios = await BookingService.getHorariosDisponibles(cancha.id, fecha);
+        session.horariosDisponibles = horarios;
+
+        const horaPrefix = hora.slice(0, 5);
+        const slotMatch = horarios.find((h) => h.hora_inicio.startsWith(horaPrefix));
+
+        if (slotMatch && slotMatch.disponible) {
+          const idHora = duracionHoras === 2 ? `hora2_${horaPrefix}` : `hora_${horaPrefix}`;
+          return await this.manejarSeleccionHora(idHora, session, telefono, complejo);
+        } else {
+          // El horario solicitado no está disponible
+          const disponibles = horarios.filter((h) => h.disponible);
+          if (disponibles.length === 0) {
+            session.paso = 'SELECCION_FECHA';
+            return {
+              texto: `⚠️ *Horario no disponible*\n\n` +
+                `El turno de las *${horaPrefix}* para *${cancha.nombre}* el *${fecha}* ya se encuentra reservado.\n\n` +
+                `❌ Lamentablemente no quedan más turnos libres para esta fecha en este espacio.\n` +
+                `👉 Por favor escribe otra fecha (ej. *"mañana"*, *"el sábado"*) o escribe *MENU*.`,
+            };
+          }
+
+          session.paso = 'SELECCION_HORA';
+          const filasAlt: InteractiveRow[] = disponibles.slice(0, 6).map((h) => {
+            const precioFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(h.precio);
+            return {
+              id: `hora_${h.hora_inicio.slice(0, 5)}`,
+              title: `${h.hora_inicio.slice(0, 5)} a ${h.hora_fin.slice(0, 5)}`.slice(0, 24),
+              description: `${precioFmt} • Disponible hoy`.slice(0, 72),
+            };
+          });
+
+          const textoRespuesta = `⚠️ *Horario ocupado*\n\n` +
+            `El turno de las *${horaPrefix}* para *${cancha.nombre}* el *${fecha}* ya fue reservado por otro usuario.\n\n` +
+            `✨ *¡Pero tenemos estos turnos disponibles para ti hoy en ${cancha.nombre}!*:\n` +
+            `Por favor selecciona tu horario alternativo del menú desplegable a continuación:`;
+
+          return {
+            texto: textoRespuesta,
+            interactive: {
+              type: 'list',
+              header: 'Horarios Disponibles',
+              body: textoRespuesta,
+              footer: 'Elige del menú o escribe ASESOR',
+              action: {
+                button: 'Ver Horarios',
+                sections: [{ title: 'Turnos Disponibles', rows: filasAlt }],
+              },
+            },
+          };
+        }
+      }
+
+      // CASO 2: Cancha + Fecha (sin hora)
+      if (cancha && fecha && !hora) {
+        session.canchaSeleccionada = cancha;
+        return await this.manejarSeleccionFecha(fecha, session);
+      }
+
+      // CASO 3: Fecha + Hora (sin Cancha identificada y hay múltiples canchas)
+      if (!cancha && fecha && hora && canchas.length > 1) {
+        session.fechaSeleccionada = fecha;
+        const canchasLibres: Cancha[] = [];
+        for (const c of canchas) {
+          try {
+            const hDisponibles = await BookingService.getHorariosDisponibles(c.id, fecha);
+            const tieneTurno = hDisponibles.some((h) => h.hora_inicio.startsWith(hora.slice(0, 5)) && h.disponible);
+            if (tieneTurno) canchasLibres.push(c);
+          } catch (e) {}
+        }
+
+        if (canchasLibres.length === 1) {
+          session.canchaSeleccionada = canchasLibres[0];
+          session.horariosDisponibles = await BookingService.getHorariosDisponibles(canchasLibres[0].id, fecha);
+          const idHora = duracionHoras === 2 ? `hora2_${hora.slice(0, 5)}` : `hora_${hora.slice(0, 5)}`;
+          return await this.manejarSeleccionHora(idHora, session, telefono, complejo);
+        }
+
+        if (canchasLibres.length > 1) {
+          session.paso = 'SELECCION_CANCHA';
+          const rows: InteractiveRow[] = canchasLibres.map((c) => ({
+            id: `cancha_${c.id}`,
+            title: c.nombre.slice(0, 24),
+            description: `Libre a las ${hora.slice(0, 5)} • $${c.precio_estandar.toLocaleString('es-CO')}`.slice(0, 72),
+          }));
+
+          const textoResp = `📅 Para el *${fecha}* a las *${hora.slice(0, 5)}* tenemos disponibles los siguientes espacios en *${complejo.nombre}*:\n\n` +
+            `👉 Selecciona en cuál de ellos deseas tu reserva o cita:`;
+
+          return {
+            texto: textoResp,
+            interactive: {
+              type: 'list',
+              header: 'Canchas Disponibles',
+              body: textoResp,
+              footer: 'Elige del menú o escribe ASESOR',
+              action: {
+                button: 'Elegir Cancha',
+                sections: [{ title: `Libres a las ${hora.slice(0, 5)}`, rows }],
+              },
+            },
+          };
+        }
+      }
+
+      // CASO 4: Solo Cancha
+      if (cancha && !fecha && !hora) {
+        return await this.manejarSeleccionCancha(`cancha_${cancha.id}`, session);
+      }
+    }
+
+    return null;
   }
 
   private static async manejarInicio(
