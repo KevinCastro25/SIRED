@@ -312,7 +312,7 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
             </span>
             <p className="text-xs font-bold text-[#2D2529] flex items-center justify-center gap-1">
               <IconMapPin className="w-3.5 h-3.5 text-[#C74B66] shrink-0" />
-              Pereira, Risaralda
+              Pereira, Cuba (Calle 66 bis #26-57)
             </p>
             <p className="text-[11px] text-[#7D6870]">Spa de Uñas</p>
           </div>
@@ -433,10 +433,10 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
       {/* FOOTER */}
       <footer className="text-center py-8 text-xs text-[#7D6870] border-t border-[#F2C4D2]/60 space-y-1">
         <p className="font-semibold text-[#8C243B]">
-          JL Mímate Nails · Pereira, Risaralda ✦
+          JL Mímate Nails✦
         </p>
         <p className="text-[11px] opacity-80">
-          Lunes a Sábado 9:30 am a 5:30 pm · Reservas web sin cobros anticipados
+          Lunes a Sábado 9:30 am a 5:30 pm
         </p>
       </footer>
 
