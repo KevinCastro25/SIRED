@@ -47,7 +47,10 @@ export class ReminderService {
       const telefono = cliente?.telefono_wa;
       if (!telefono) continue;
 
-      const nombreCliente = cliente.nombre || 'Cliente';
+      let nombreCliente = cliente.nombre || 'Cliente';
+      const matchNom = notas.match(/Clienta:\s*([^|[\n]+)/i);
+      if (matchNom && matchNom[1]) nombreCliente = matchNom[1].trim();
+
       const fechaCita = new Date(r.fecha_inicio).toLocaleDateString('es-CO', {
         timeZone: 'America/Bogota',
         weekday: 'long',

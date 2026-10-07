@@ -949,7 +949,7 @@ app.post('/api/spa/reservar', async (req: Request, res: Response) => {
 
     const cliente = await BookingService.getOrCreateCliente(cleanPhone, cliente_nombre.trim());
 
-    const notas = `💅 Servicio: ${servicio_nombre || 'Uñas'} | Reserva Web JL Mímate Nails | Pago en el spa (Sin cobro anticipado)`;
+    const notas = `💅 Servicio: ${servicio_nombre || 'Uñas'} | Clienta: ${cliente_nombre.trim()} | Reserva Web JL Mímate Nails | Pago en el spa (Sin cobro anticipado)`;
 
     const { data: reserva, error: errRes } = await supabase
       .from('reservas')

@@ -15,6 +15,9 @@ import {
   IconLock,
   IconRefresh,
   IconAlertCircle,
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronDown,
 } from '@tabler/icons-react';
 
 interface Cancha {
@@ -120,6 +123,24 @@ interface Props {
   complejoId?: string;
 }
 
+// Función auxiliar para obtener el nombre exacto de la clienta por cita
+function obtenerNombreClienta(cita: Reserva): string {
+  const matchNom = (cita.notas || '').match(/Clienta:\s*([^|[\n]+)/i);
+  if (matchNom && matchNom[1]) {
+    return matchNom[1].trim();
+  }
+  return cita.clientes?.nombre || 'Clienta';
+}
+
+// Función auxiliar para extraer el nombre del servicio de la cita
+function obtenerServicioCita(cita: Reserva): string {
+  const matchSvc = (cita.notas || '').match(/Servicio:\s*([^|[\n]+)/i);
+  if (matchSvc && matchSvc[1]) {
+    return matchSvc[1].trim();
+  }
+  return 'Servicio de Uñas';
+}
+
 export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, complejoId }) => {
   const hoyStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string>(hoyStr);
@@ -153,6 +174,11 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
   const [agendarTelefono, setAgendarTelefono] = useState('');
   const [guardandoCita, setGuardandoCita] = useState(false);
   const [errorAgendar, setErrorAgendar] = useState<string | null>(null);
+
+  // Estados para dropdowns bonitos en el modal
+  const [menuManiAbierto, setMenuManiAbierto] = useState(false);
+  const [menuServicioAbierto, setMenuServicioAbierto] = useState(false);
+  const [menuHoraAbierto, setMenuHoraAbierto] = useState(false);
 
   // 1. Cargar datos del Spa (Equipo, Servicios)
   const cargarInfoSpa = async () => {
@@ -214,6 +240,30 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
     }
   }, [perfilesConIds]);
 
+  // Navegar días hacia atrás o adelante
+  const cambiarDia = (offset: number) => {
+    const [y, m, d] = fechaSeleccionada.split('-').map(Number);
+    const fechaObj = new Date(y, m - 1, d);
+    fechaObj.setDate(fechaObj.getDate() + offset);
+    const nuevoY = fechaObj.getFullYear();
+    const nuevoM = String(fechaObj.getMonth() + 1).padStart(2, '0');
+    const nuevoD = String(fechaObj.getDate()).padStart(2, '0');
+    setFechaSeleccionada(`${nuevoY}-${nuevoM}-${nuevoD}`);
+  };
+
+  // Fecha legible en español
+  const fechaLegible = useMemo(() => {
+    if (!fechaSeleccionada) return '';
+    const [y, m, d] = fechaSeleccionada.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const texto = dateObj.toLocaleDateString('es-CO', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+  }, [fechaSeleccionada]);
+
   // Manejo de Login con PIN
   const handleIniciarSesion = (perfil: StaffProfile) => {
     setModalPinPerfil(perfil);
@@ -265,6 +315,9 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
     setAgendarNombre('');
     setAgendarTelefono('');
     setErrorAgendar(null);
+    setMenuManiAbierto(false);
+    setMenuServicioAbierto(false);
+    setMenuHoraAbierto(false);
     setModalAgendarAbierto(true);
   };
 
@@ -371,6 +424,16 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
   }, [reservas, canchas, servicios]);
 
   const esAdmin = perfilActual?.rol === 'admin';
+
+  // Objeto de la manicurista actualmente seleccionada en el formulario
+  const manicuristaSeleccionadaForm = useMemo(() => {
+    return canchas.find((c) => c.id === agendarManicuristaId) || canchas[0];
+  }, [canchas, agendarManicuristaId]);
+
+  // Objeto del servicio actualmente seleccionado en el formulario
+  const servicioSeleccionadoForm = useMemo(() => {
+    return servicios.find((s) => s.id === Number(agendarServicioId)) || servicios[0];
+  }, [servicios, agendarServicioId]);
 
   // ============================================================================
   // VISTA 1: PANTALLA DE LOGIN CON LOS 4 PERFILES
@@ -611,7 +674,7 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
             {esAdmin && (
               <button
                 onClick={() => abrirModalAgendar()}
-                className="flex items-center gap-1 px-3 py-2 bg-gradient-to-r from-[#8C243B] to-[#C74B66] hover:from-[#731D30] hover:to-[#B03C54] text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer"
+                className="flex items-center gap-1 px-3.5 py-2 bg-gradient-to-r from-[#8C243B] to-[#C74B66] hover:from-[#731D30] hover:to-[#B03C54] text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer"
               >
                 <IconPlus className="w-4 h-4 stroke-[3]" />
                 <span className="hidden sm:inline">Agendar Cita</span>
@@ -654,7 +717,7 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
       {/* CONTENIDO PRINCIPAL */}
       <main className="max-w-7xl mx-auto w-full p-4 sm:p-6 space-y-6 flex-1">
         
-        {/* BARRA DE FECHA Y FILTROS */}
+        {/* BARRA DE FECHA CON FLECHAS DÍA ANTERIOR / SIGUIENTE */}
         <div className="bg-white rounded-2xl p-4 border border-[#F2C4D2] shadow-xs flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-[#FCE8EF] text-[#8C243B] flex items-center justify-center shrink-0">
@@ -667,28 +730,48 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
                   : `Mi Agenda Personal (${perfilActual.nombre})`}
               </p>
               <p className="text-[11px] text-[#7D6870]">
-                {reservasDelDia.length} citas registradas para este día
+                {fechaLegible} · <strong className="text-[#8C243B]">{reservasDelDia.length} citas</strong> programadas
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* CONTROLES DE FECHA CON FLECHAS */}
+          <div className="flex items-center gap-1.5 bg-[#FFF5F7] p-1.5 rounded-2xl border border-[#F2C4D2]">
+            <button
+              onClick={() => cambiarDia(-1)}
+              className="p-2 rounded-xl bg-white hover:bg-[#FCE8EF] text-[#8C243B] border border-[#F2C4D2] transition cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+              title="Día anterior"
+            >
+              <IconChevronLeft className="w-4 h-4 stroke-[2.5]" />
+            </button>
+
             <button
               onClick={() => setFechaSeleccionada(hoyStr)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs ${
                 fechaSeleccionada === hoyStr
                   ? 'bg-[#8C243B] text-white shadow-xs'
-                  : 'bg-[#FFF5F7] text-[#7D6870] hover:text-[#2D2529] border border-[#F2C4D2]'
+                  : 'bg-white text-[#7D6870] hover:text-[#2D2529] border border-[#F2C4D2]'
               }`}
             >
               Hoy
             </button>
-            <input
-              type="date"
-              value={fechaSeleccionada}
-              onChange={(e) => setFechaSeleccionada(e.target.value)}
-              className="px-3 py-1.5 bg-[#FFF5F7] border border-[#F2C4D2] rounded-xl text-xs font-bold text-[#2D2529] outline-none cursor-pointer"
-            />
+
+            <button
+              onClick={() => cambiarDia(1)}
+              className="p-2 rounded-xl bg-white hover:bg-[#FCE8EF] text-[#8C243B] border border-[#F2C4D2] transition cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+              title="Día siguiente"
+            >
+              <IconChevronRight className="w-4 h-4 stroke-[2.5]" />
+            </button>
+
+            <div className="relative pl-1">
+              <input
+                type="date"
+                value={fechaSeleccionada}
+                onChange={(e) => setFechaSeleccionada(e.target.value)}
+                className="px-3 py-1.5 bg-white border border-[#F2C4D2] rounded-xl text-xs font-bold text-[#2D2529] outline-none cursor-pointer hover:border-[#8C243B] transition shadow-2xs"
+              />
+            </div>
           </div>
         </div>
 
@@ -699,10 +782,10 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base sm:text-lg font-bold text-[#2D2529] font-serif">
-                Turnos por Especialista · {fechaSeleccionada}
+                Turnos por Especialista · {fechaLegible}
               </h2>
               <span className="text-xs text-[#7D6870]">
-                Horario oficial: 9:30 am a 5:30 pm (Lunes a Sábado)
+                Horario: 9:30 am a 5:30 pm (Lunes a Sábado)
               </span>
             </div>
 
@@ -741,19 +824,15 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
                     <div className="p-3 space-y-2.5 flex-1 min-h-[220px]">
                       {citasCancha.length === 0 ? (
                         <div className="text-center py-8 text-[#7D6870] space-y-1">
-                          <p className="text-xs">Sin citas para hoy</p>
+                          <p className="text-xs font-semibold text-[#8C243B]">Sin citas para este día</p>
                           <p className="text-[11px] opacity-70">Turnos libres disponibles</p>
                         </div>
                       ) : (
                         citasCancha.map((cita) => {
                           const horaInicio = cita.fecha_inicio.split('T')[1]?.slice(0, 5) || '09:30';
-                          const cliente = cita.clientes;
-                          const telLimpio = String(cliente?.telefono_wa || '').replace(/\D/g, '');
-
-                          // Extraer nombre del servicio de las notas si está guardado
-                          let servicioNombre = 'Servicio de Uñas';
-                          const matchSvc = (cita.notas || '').match(/Servicio:\s*([^|[\n]+)/i);
-                          if (matchSvc && matchSvc[1]) servicioNombre = matchSvc[1].trim();
+                          const nombreClienta = obtenerNombreClienta(cita);
+                          const servicioNombre = obtenerServicioCita(cita);
+                          const telLimpio = String(cita.clientes?.telefono_wa || '').replace(/\D/g, '');
 
                           return (
                             <div
@@ -786,7 +865,7 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
 
                               <div>
                                 <p className="font-bold text-[#2D2529] text-xs">
-                                  {cliente?.nombre || 'Clienta'}
+                                  {nombreClienta}
                                 </p>
                                 <p className="text-[11px] text-[#7D6870] truncate">
                                   💅 {servicioNombre}
@@ -799,11 +878,11 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
                                 </span>
 
                                 <div className="flex items-center gap-1">
-                                  {/* Botón WhatsApp */}
+                                  {/* Botón WhatsApp con nombre correcto de clienta */}
                                   {telLimpio && (
                                     <a
                                       href={`https://wa.me/${telLimpio}?text=Hola%20${encodeURIComponent(
-                                        cliente?.nombre || ''
+                                        nombreClienta
                                       )},%20te%20saludamos%20de%20JL%20M%C3%ADmate%20Nails%20respecto%20a%20tu%20cita%20de%20hoy.`}
                                       target="_blank"
                                       rel="noreferrer"
@@ -836,7 +915,7 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
                     <div className="p-2 bg-[#FFF5F7] border-t border-[#F2C4D2]">
                       <button
                         onClick={() => abrirModalAgendar(cancha.id)}
-                        className="w-full py-1.5 bg-white hover:bg-[#FCE8EF] text-[#8C243B] border border-[#F2C4D2] text-[11px] font-bold rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
+                        className="w-full py-1.5 bg-white hover:bg-[#FCE8EF] text-[#8C243B] border border-[#F2C4D2] text-[11px] font-bold rounded-xl transition flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
                       >
                         <IconPlus className="w-3.5 h-3.5" />
                         <span>Agendar con {cancha.nombre.split(' ')[0]}</span>
@@ -885,11 +964,11 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
               </div>
 
               <div className="bg-white rounded-2xl p-4 border border-[#F2C4D2] shadow-xs space-y-1">
-                <span className="text-[11px] font-bold text-[#7D6870] uppercase">Citas Hoy</span>
+                <span className="text-[11px] font-bold text-[#7D6870] uppercase">Citas del Día</span>
                 <p className="text-xl sm:text-2xl font-black font-mono text-[#C74B66]">
                   {reservasDelDia.length}
                 </p>
-                <p className="text-[10px] text-[#7D6870]">Turnos programados para hoy</p>
+                <p className="text-[10px] text-[#7D6870]">Turnos para {fechaLegible}</p>
               </div>
             </div>
 
@@ -985,7 +1064,7 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
                   ¡Hola, {perfilActual.nombre}! 💅
                 </h2>
                 <p className="text-xs text-[#7D6870]">
-                  Aquí tienes los turnos asignados únicamente a tu puesto para el {fechaSeleccionada}.
+                  Turnos asignados a tu puesto para el {fechaLegible}.
                 </p>
               </div>
               <span className="text-xs font-bold text-[#8C243B] bg-white px-3 py-1 rounded-full border border-[#F2C4D2]">
@@ -1022,12 +1101,9 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {misCitas.map((cita) => {
                     const horaInicio = cita.fecha_inicio.split('T')[1]?.slice(0, 5) || '09:30';
-                    const cliente = cita.clientes;
-                    const telLimpio = String(cliente?.telefono_wa || '').replace(/\D/g, '');
-
-                    let servicioNombre = 'Servicio de Uñas';
-                    const matchSvc = (cita.notas || '').match(/Servicio:\s*([^|[\n]+)/i);
-                    if (matchSvc && matchSvc[1]) servicioNombre = matchSvc[1].trim();
+                    const nombreClienta = obtenerNombreClienta(cita);
+                    const servicioNombre = obtenerServicioCita(cita);
+                    const telLimpio = String(cita.clientes?.telefono_wa || '').replace(/\D/g, '');
 
                     return (
                       <div
@@ -1060,7 +1136,7 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
 
                         <div>
                           <p className="font-bold text-sm text-[#2D2529]">
-                            {cliente?.nombre || 'Clienta'}
+                            {nombreClienta}
                           </p>
                           <p className="text-xs text-[#7D6870] font-medium mt-0.5">
                             💅 {servicioNombre}
@@ -1076,7 +1152,7 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
                             {telLimpio && (
                               <a
                                 href={`https://wa.me/${telLimpio}?text=Hola%20${encodeURIComponent(
-                                  cliente?.nombre || ''
+                                  nombreClienta
                                 )},%20te%20escribe%20tu%20manicurista%20de%20JL%20M%C3%ADmate%20Nails%20respecto%20a%20tu%20cita.`}
                                 target="_blank"
                                 rel="noreferrer"
@@ -1114,7 +1190,7 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
       </main>
 
       {/* ==================================================================== */}
-      {/* MODAL EXCLUSIVO DE LA ADMIN: AGENDAR CITA PRESENCIAL O TELEFÓNICA    */}
+      {/* MODAL EXCLUSIVO DE LA ADMIN: AGENDAR CITA CON MENÚS DESPLEGABLES     */}
       {/* ==================================================================== */}
       <AnimatePresence>
         {esAdmin && modalAgendarAbierto && (
@@ -1148,43 +1224,134 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
               </div>
 
               <form onSubmit={handleCrearCitaAdmin} className="space-y-3.5 text-xs">
-                {/* 1. Seleccionar Manicurista */}
-                <div>
+                {/* 1. MENÚ DESPLEGABLE ELEGANTE: MANICURISTA */}
+                <div className="relative">
                   <label className="font-bold text-[#7D6870] block mb-1">
                     Especialista / Manicurista
                   </label>
-                  <select
-                    value={agendarManicuristaId}
-                    onChange={(e) => setAgendarManicuristaId(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FFF5F7] border border-[#F2C4D2] rounded-xl font-bold text-[#2D2529] outline-none cursor-pointer"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuManiAbierto(!menuManiAbierto);
+                      setMenuServicioAbierto(false);
+                      setMenuHoraAbierto(false);
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-[#FFF5F7] border border-[#F2C4D2] hover:border-[#8C243B] rounded-xl font-bold text-[#2D2529] flex items-center justify-between transition cursor-pointer text-left shadow-2xs"
                   >
-                    {canchas.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre}
-                      </option>
-                    ))}
-                  </select>
+                    <span className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#FCE8EF] text-[#8C243B] flex items-center justify-center text-[10px]">
+                        💅
+                      </span>
+                      <span>{manicuristaSeleccionadaForm?.nombre || 'Seleccionar Manicurista'}</span>
+                    </span>
+                    <IconChevronDown className={`w-4 h-4 text-[#8C243B] transition-transform ${menuManiAbierto ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  <AnimatePresence>
+                    {menuManiAbierto && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-[#F2C4D2] rounded-2xl shadow-xl p-1.5 space-y-1"
+                      >
+                        {canchas.map((c, i) => {
+                          const estaSel = c.id === agendarManicuristaId;
+                          return (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                setAgendarManicuristaId(c.id);
+                                setMenuManiAbierto(false);
+                              }}
+                              className={`p-2 rounded-xl flex items-center justify-between cursor-pointer transition ${
+                                estaSel
+                                  ? 'bg-[#FCE8EF] text-[#8C243B] font-bold'
+                                  : 'hover:bg-[#FFF5F7] text-[#2D2529]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-white border border-[#F2C4D2] flex items-center justify-center text-[10px]">
+                                  {i === 0 ? '👑' : `M${i + 1}`}
+                                </span>
+                                <span>{c.nombre}</span>
+                              </div>
+                              {estaSel && <IconCheck className="w-4 h-4 text-[#8C243B]" />}
+                            </div>
+                          );
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                {/* 2. Seleccionar Servicio */}
-                <div>
+                {/* 2. MENÚ DESPLEGABLE ELEGANTE: SERVICIO DE UÑAS */}
+                <div className="relative">
                   <label className="font-bold text-[#7D6870] block mb-1">
                     Servicio de Uñas
                   </label>
-                  <select
-                    value={agendarServicioId}
-                    onChange={(e) => setAgendarServicioId(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-[#FFF5F7] border border-[#F2C4D2] rounded-xl font-bold text-[#2D2529] outline-none cursor-pointer"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuServicioAbierto(!menuServicioAbierto);
+                      setMenuManiAbierto(false);
+                      setMenuHoraAbierto(false);
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-[#FFF5F7] border border-[#F2C4D2] hover:border-[#8C243B] rounded-xl font-bold text-[#2D2529] flex items-center justify-between transition cursor-pointer text-left shadow-2xs"
                   >
-                    {servicios.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nombre} (${s.precio.toLocaleString('es-CO')} · {s.duracion} min)
-                      </option>
-                    ))}
-                  </select>
+                    <div className="truncate pr-2">
+                      <span>{servicioSeleccionadoForm?.nombre || 'Seleccionar Servicio'}</span>
+                      <span className="text-[11px] font-mono text-[#8C243B] ml-2">
+                        (${servicioSeleccionadoForm?.precio.toLocaleString('es-CO')} · {servicioSeleccionadoForm?.duracion} min)
+                      </span>
+                    </div>
+                    <IconChevronDown className={`w-4 h-4 text-[#8C243B] shrink-0 transition-transform ${menuServicioAbierto ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  <AnimatePresence>
+                    {menuServicioAbierto && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-[#F2C4D2] rounded-2xl shadow-xl p-1.5 max-h-56 overflow-y-auto space-y-1"
+                      >
+                        {servicios.map((s) => {
+                          const estaSel = s.id === agendarServicioId;
+                          return (
+                            <div
+                              key={s.id}
+                              onClick={() => {
+                                setAgendarServicioId(s.id);
+                                setMenuServicioAbierto(false);
+                              }}
+                              className={`p-2 rounded-xl flex items-center justify-between cursor-pointer transition ${
+                                estaSel
+                                  ? 'bg-[#FCE8EF] text-[#8C243B] font-bold'
+                                  : 'hover:bg-[#FFF5F7] text-[#2D2529]'
+                              }`}
+                            >
+                              <div>
+                                <p className="font-semibold">{s.nombre}</p>
+                                <p className="text-[10px] text-[#7D6870]">
+                                  {s.categoria} · {s.duracion} min
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-[#8C243B]">
+                                  ${s.precio.toLocaleString('es-CO')}
+                                </span>
+                                {estaSel && <IconCheck className="w-4 h-4 text-[#8C243B]" />}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                {/* 3. Fecha y Hora */}
+                {/* 3. FECHA Y HORA (CON MENÚ ELEGANTE DE HORA) */}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="font-bold text-[#7D6870] block mb-1">Fecha</label>
@@ -1195,23 +1362,61 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
                       className="w-full px-3 py-2 bg-[#FFF5F7] border border-[#F2C4D2] rounded-xl font-bold text-[#2D2529] outline-none cursor-pointer"
                     />
                   </div>
-                  <div>
+
+                  {/* Menú Desplegable Hora */}
+                  <div className="relative">
                     <label className="font-bold text-[#7D6870] block mb-1">Hora</label>
-                    <select
-                      value={agendarHora}
-                      onChange={(e) => setAgendarHora(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#FFF5F7] border border-[#F2C4D2] rounded-xl font-bold text-[#2D2529] outline-none cursor-pointer"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuHoraAbierto(!menuHoraAbierto);
+                        setMenuManiAbierto(false);
+                        setMenuServicioAbierto(false);
+                      }}
+                      className="w-full px-3 py-2 bg-[#FFF5F7] border border-[#F2C4D2] hover:border-[#8C243B] rounded-xl font-bold text-[#2D2529] flex items-center justify-between transition cursor-pointer text-left shadow-2xs"
                     >
-                      {HORAS_JORNADA.map((h) => (
-                        <option key={h} value={h}>
-                          {h}
-                        </option>
-                      ))}
-                    </select>
+                      <span className="flex items-center gap-1 font-mono text-[#8C243B]">
+                        <IconClock className="w-3.5 h-3.5 text-[#C74B66]" />
+                        {agendarHora}
+                      </span>
+                      <IconChevronDown className={`w-3.5 h-3.5 text-[#8C243B] transition-transform ${menuHoraAbierto ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    <AnimatePresence>
+                      {menuHoraAbierto && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          className="absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-[#F2C4D2] rounded-2xl shadow-xl p-1.5 max-h-48 overflow-y-auto space-y-1"
+                        >
+                          {HORAS_JORNADA.map((h) => {
+                            const estaSel = h === agendarHora;
+                            return (
+                              <div
+                                key={h}
+                                onClick={() => {
+                                  setAgendarHora(h);
+                                  setMenuHoraAbierto(false);
+                                }}
+                                className={`px-2.5 py-1.5 rounded-lg flex items-center justify-between cursor-pointer font-mono text-xs transition ${
+                                  estaSel
+                                    ? 'bg-[#FCE8EF] text-[#8C243B] font-bold'
+                                    : 'hover:bg-[#FFF5F7] text-[#2D2529]'
+                                }`}
+                              >
+                                <span>{h}</span>
+                                {estaSel && <IconCheck className="w-3.5 h-3.5 text-[#8C243B]" />}
+                              </div>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
 
-                {/* 4. Datos de la Clienta */}
+                {/* 4. DATOS DE LA CLIENTA */}
                 <div>
                   <label className="font-bold text-[#7D6870] block mb-1">
                     Nombre de la Clienta
@@ -1221,7 +1426,7 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
                     placeholder="Ej: Camila Restrepo"
                     value={agendarNombre}
                     onChange={(e) => setAgendarNombre(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FFF5F7] border border-[#F2C4D2] rounded-xl text-[#2D2529] font-medium outline-none"
+                    className="w-full px-3 py-2 bg-[#FFF5F7] border border-[#F2C4D2] rounded-xl text-[#2D2529] font-medium outline-none focus:border-[#8C243B]"
                     required
                   />
                 </div>
@@ -1235,7 +1440,7 @@ export const MimateNailsDashboard: React.FC<Props> = ({ onIrAWebReservas, comple
                     placeholder="321 961 0896"
                     value={agendarTelefono}
                     onChange={(e) => setAgendarTelefono(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FFF5F7] border border-[#F2C4D2] rounded-xl text-[#2D2529] font-mono outline-none"
+                    className="w-full px-3 py-2 bg-[#FFF5F7] border border-[#F2C4D2] rounded-xl text-[#2D2529] font-mono outline-none focus:border-[#8C243B]"
                     required
                   />
                   <p className="text-[10px] text-[#7D6870] mt-0.5">

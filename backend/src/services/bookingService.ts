@@ -131,9 +131,7 @@ export class BookingService {
     if (findError) throw findError;
 
     if (existing) {
-      if (nombre && (!existing.nombre || existing.nombre !== nombre)) {
-        await supabase.from('clientes').update({ nombre }).eq('id', existing.id);
-      }
+      // Retornar cliente existente sin sobreescribir su nombre histórico
       return existing;
     }
 

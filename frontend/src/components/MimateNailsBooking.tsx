@@ -10,6 +10,7 @@ import {
   IconArrowLeft,
   IconLoader2,
   IconHeart,
+  IconChevronDown,
 } from '@tabler/icons-react';
 
 interface Servicio {
@@ -136,6 +137,7 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
   const [fecha, setFecha] = useState(hoyStr);
   const [horaSeleccionada, setHoraSeleccionada] = useState<string | null>(null);
   const [empleadaId, setEmpleadaId] = useState<string>(''); // Vacío = "Cualquiera disponible"
+  const [menuEspecialistaAbierto, setMenuEspecialistaAbierto] = useState(false);
   const [slots, setSlots] = useState<string[]>([]);
   const [cargandoSlots, setCargandoSlots] = useState(false);
   const [avisoSlots, setAvisoSlots] = useState<string | null>(null);
@@ -205,6 +207,7 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
     setPaso(1);
     setHoraSeleccionada(null);
     setAvisoSlots(null);
+    setMenuEspecialistaAbierto(false);
     setModalAbierto(true);
   };
 
@@ -213,6 +216,7 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
     setPaso(1);
     setHoraSeleccionada(null);
     setReservaConfirmada(null);
+    setMenuEspecialistaAbierto(false);
   };
 
   const handleConfirmarReserva = async () => {
@@ -500,22 +504,71 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
                     </div>
 
                     {/* Selector opcional de manicurista */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 relative">
                       <label className="text-[11px] font-bold uppercase tracking-wider text-[#7D6870] block">
                         Especialista de uñas
                       </label>
-                      <select
-                        value={empleadaId}
-                        onChange={(e) => setEmpleadaId(e.target.value)}
-                        className="w-full bg-white border border-[#F2C4D2] rounded-xl px-3 py-2 text-xs font-semibold text-[#2D2529] focus:outline-none focus:ring-2 focus:ring-[#C74B66]/20"
+                      <button
+                        type="button"
+                        onClick={() => setMenuEspecialistaAbierto(!menuEspecialistaAbierto)}
+                        className="w-full bg-white border border-[#F2C4D2] rounded-xl px-3.5 py-2.5 text-xs font-semibold text-[#2D2529] flex items-center justify-between hover:border-[#C74B66] focus:outline-none focus:ring-2 focus:ring-[#C74B66]/20 transition shadow-xs cursor-pointer text-left"
                       >
-                        <option value="">Cualquiera disponible (Recomendado)</option>
-                        {empleadas.map((emp) => (
-                          <option key={emp.id} value={emp.id}>
-                            {emp.nombre}
-                          </option>
-                        ))}
-                      </select>
+                        <span className="truncate">
+                          {empleadas.find((e) => e.id === empleadaId)?.nombre || 'Cualquiera disponible (Recomendado)'}
+                        </span>
+                        <IconChevronDown
+                          className={`w-4 h-4 text-[#C74B66] shrink-0 transition-transform duration-200 ${
+                            menuEspecialistaAbierto ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+
+                      <AnimatePresence>
+                        {menuEspecialistaAbierto && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#F2C4D2] rounded-xl shadow-lg z-30 py-1.5 max-h-48 overflow-y-auto"
+                          >
+                            <div
+                              onClick={() => {
+                                setEmpleadaId('');
+                                setMenuEspecialistaAbierto(false);
+                              }}
+                              className={`px-3 py-2 text-xs flex items-center justify-between cursor-pointer transition ${
+                                !empleadaId
+                                  ? 'bg-[#FCE8EF] text-[#8C243B] font-bold'
+                                  : 'hover:bg-[#FFF5F7] text-[#2D2529]'
+                              }`}
+                            >
+                              <span>Cualquiera disponible (Recomendado)</span>
+                              {!empleadaId && <IconCheck className="w-4 h-4 text-[#8C243B]" />}
+                            </div>
+                            {empleadas.map((emp) => {
+                              const sel = empleadaId === emp.id;
+                              return (
+                                <div
+                                  key={emp.id}
+                                  onClick={() => {
+                                    setEmpleadaId(emp.id);
+                                    setMenuEspecialistaAbierto(false);
+                                  }}
+                                  className={`px-3 py-2 text-xs flex items-center justify-between cursor-pointer transition ${
+                                    sel
+                                      ? 'bg-[#FCE8EF] text-[#8C243B] font-bold'
+                                      : 'hover:bg-[#FFF5F7] text-[#2D2529]'
+                                  }`}
+                                >
+                                  <span>{emp.nombre}</span>
+                                  {sel && <IconCheck className="w-4 h-4 text-[#8C243B]" />}
+                                </div>
+                              );
+                            })}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     {/* Selector de fecha */}
