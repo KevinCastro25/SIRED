@@ -669,15 +669,8 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
                       <h2 className="text-xl font-bold text-[#2D2529]">
                         ¡Cita <span className="italic text-[#C74B66] font-serif">confirmada!</span>
                       </h2>
-                      {reservaConfirmada.codigo && (
-                        <div className="pt-0.5">
-                          <span className="inline-block bg-[#FCE8EF] text-[#8C243B] text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-[#F2C4D2]">
-                            Voucher #{reservaConfirmada.codigo}
-                          </span>
-                        </div>
-                      )}
                       <p className="text-xs text-[#7D6870] max-w-sm mx-auto leading-relaxed pt-1">
-                        ¡Listo, reina! Enviamos tu comprobante oficial (voucher) al WhatsApp{' '}
+                        ¡Listo, reina! Enviamos tu comprobante oficial al WhatsApp{' '}
                         <strong className="text-[#8C243B]">{reservaConfirmada.telefono}</strong>.
                       </p>
                     </div>

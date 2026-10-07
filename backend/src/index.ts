@@ -968,8 +968,10 @@ app.post('/api/spa/reservar', async (req: Request, res: Response) => {
 
     if (errRes) throw errRes;
 
-    // Generar y enviar VOUCHER oficial por WhatsApp
-    const precioFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(precio || 35000);
+    // Formatear precio en pesos colombianos ($25.000)
+    const numPrecio = Number(precio || 0);
+    const precioFmt = '$' + numPrecio.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
     const fechaLegible = dInicio.toLocaleDateString('es-CO', {
       timeZone: 'America/Bogota',
       weekday: 'long',
@@ -978,28 +980,20 @@ app.post('/api/spa/reservar', async (req: Request, res: Response) => {
       year: 'numeric',
     });
 
-    const codigoReserva = (reserva.id || '').slice(0, 8).toUpperCase();
-
     const voucherWhatsApp =
-      `══════════════════════════\n` +
       `🌸 *JL MÍMATE NAILS* 🌸\n` +
-      `_Comprobante de Cita Web_\n` +
-      `══════════════════════════\n\n` +
-      `¡Hola *${cliente_nombre.trim()}*! 💅 Tu cita ha sido agendada con éxito en nuestro spa de uñas. Aquí tienes tu voucher oficial:\n\n` +
-      `📌 *CÓDIGO DE RESERVA:* #${codigoReserva}\n` +
-      `💅 *SERVICIO:* ${servicio_nombre}\n` +
-      `👩‍🎨 *ESPECIALISTA:* ${empleadaAsignada.nombre}\n` +
-      `📅 *FECHA:* ${fechaLegible}\n` +
-      `⏰ *HORA:* ${hora}\n` +
-      `⏱️ *DURACIÓN APROX:* ${duracion_minutos} min\n` +
-      `💰 *VALOR A PAGAR:* ${precioFmt}\n` +
-      `✨ *MODALIDAD:* Pago en el spa (sin cobros anticipados)\n\n` +
-      `📍 *DIRECCIÓN:* Pereira, Cuba (Calle 66 bis #26-57)\n` +
-      `🏢 *LUGAR:* JL Mímate Nails - Spa de Uñas\n\n` +
-      `──────────────────────────\n` +
-      `🔔 *RECORDATORIO AUTOMÁTICO:*\n` +
-      `Te enviaremos un mensaje de recordatorio por este mismo WhatsApp *1 día antes* de tu cita para que no lo olvides.\n` +
-      `──────────────────────────\n\n` +
+      `_Comprobante de Cita_\n` +
+      `───────────────\n\n` +
+      `¡Hola *${cliente_nombre.trim()}*! 💅 Tu cita ha sido agendada con éxito:\n\n` +
+      `💅 *Servicio:* ${servicio_nombre}\n` +
+      `👩‍🎨 *Especialista:* ${empleadaAsignada.nombre}\n` +
+      `📅 *Fecha:* ${fechaLegible}\n` +
+      `⏰ *Hora:* ${hora}\n` +
+      `⏱️ *Duración aprox:* ${duracion_minutos} min\n` +
+      `💰 *Valor a pagar:* ${precioFmt}\n\n` +
+      `📍 *Dirección:* Pereira, Cuba (Calle 66 bis #26-57)\n` +
+      `🏢 *Lugar:* JL Mímate Nails - Spa de Uñas\n\n` +
+      `───────────────\n` +
       `Si necesitas reprogramar o tienes alguna duda, puedes responder directamente a este mensaje.\n` +
       `¡Nos vemos pronto para consentirte reina! 💕🌸`;
 
@@ -1021,7 +1015,6 @@ app.post('/api/spa/reservar', async (req: Request, res: Response) => {
       reserva,
       empleada: empleadaAsignada.nombre,
       waEnviado,
-      codigoReserva,
       voucher: voucherWhatsApp,
     });
   } catch (error: any) {
