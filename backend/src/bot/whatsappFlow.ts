@@ -162,9 +162,10 @@ export class WhatsAppFlow {
             session.paso = 'SELECCION_HORA';
             if (contexto.hora) {
               const horarios = await BookingService.getHorariosDisponibles(contexto.cancha.id, contexto.fecha);
+              session.horariosDisponibles = horarios;
               const turnoMatch = horarios.find((h) => h.hora_inicio.startsWith(contexto.hora!) && h.disponible);
               if (turnoMatch) {
-                return await this.manejarSeleccionHora(turnoMatch.hora_inicio, session, telefono, complejo);
+                return await this.manejarSeleccionHora(`hora_${turnoMatch.hora_inicio.slice(0, 5)}`, session, telefono, complejo);
               }
             }
             return await this.manejarSeleccionFecha(contexto.fecha, session);
@@ -609,8 +610,15 @@ export class WhatsAppFlow {
 
     const cliente = await BookingService.getOrCreateCliente(telefono);
 
-    const fechaInicioIso = `${session.fechaSeleccionada}T${horaIniNorm}:00Z`;
-    const fechaFinIso = `${session.fechaSeleccionada}T${horaFinNorm}:00Z`;
+    const formatearTimestampIso = (fecha: string, hora: string): string => {
+      const match = hora.match(/^(\d{1,2}):(\d{2})/);
+      const hh = match ? match[1].padStart(2, '0') : '00';
+      const mm = match ? match[2].padStart(2, '0') : '00';
+      return `${fecha}T${hh}:${mm}:00Z`;
+    };
+
+    const fechaInicioIso = formatearTimestampIso(session.fechaSeleccionada!, horaIniNorm);
+    const fechaFinIso = formatearTimestampIso(session.fechaSeleccionada!, horaFinNorm);
 
     try {
       // Re-verificar en tiempo real que el horario siga verdaderamente libre y no haya sido tomado
