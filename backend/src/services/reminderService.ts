@@ -176,7 +176,7 @@ export class ReminderService {
     }
 
     try {
-      await axios.post(
+      const res = await axios.post(
         `https://graph.facebook.com/v21.0/${phoneId}/messages`,
         {
           messaging_product: 'whatsapp',
@@ -192,8 +192,9 @@ export class ReminderService {
           },
         }
       );
+      console.log(`✅ [RECORDATORIO WHATSAPP ENVIADO a ${cleanPhone}]: ID ${res.data?.messages?.[0]?.id}`);
     } catch (err: any) {
-      console.error(`Error enviando recordatorio a ${to}:`, err.response?.data || err.message);
+      console.error(`❌ [ERROR RECORDATORIO WHATSAPP a ${cleanPhone}]:`, err.response?.data || err.message);
     }
   }
 }

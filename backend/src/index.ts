@@ -180,7 +180,7 @@ async function enviarMensajeWhatsApp(
   }
 
   try {
-    await axios.post(
+    const res = await axios.post(
       `https://graph.facebook.com/v21.0/${phoneId}/messages`,
       payload,
       {
@@ -190,17 +190,18 @@ async function enviarMensajeWhatsApp(
         },
       }
     );
+    console.log(`✅ [WHATSAPP ENVIADO EXITOSAMENTE a ${cleanTo}]: ID ${res.data?.messages?.[0]?.id}`);
   } catch (err: any) {
-    console.error('Error enviando mensaje a WhatsApp:', err.response?.data || err.message);
+    console.error(`❌ [ERROR WHATSAPP a ${cleanTo}]:`, err.response?.data || err.message);
     if (typeof message === 'object' && message.interactive) {
       try {
-        console.log(`[WHATSAPP FALLBACK]: Enviando mensaje en texto plano a ${to}`);
-        await axios.post(
+        console.log(`[WHATSAPP FALLBACK]: Enviando mensaje en texto plano a ${cleanTo}`);
+        const fallbackRes = await axios.post(
           `https://graph.facebook.com/v21.0/${phoneId}/messages`,
           {
             messaging_product: 'whatsapp',
             recipient_type: 'individual',
-            to,
+            to: cleanTo,
             type: 'text',
             text: { body: message.texto },
           },
@@ -211,6 +212,7 @@ async function enviarMensajeWhatsApp(
             },
           }
         );
+        console.log(`✅ [WHATSAPP FALLBACK ENVIADO a ${cleanTo}]: ID ${fallbackRes.data?.messages?.[0]?.id}`);
       } catch (fallbackErr: any) {
         console.error('Error en fallback de texto WhatsApp:', fallbackErr.response?.data || fallbackErr.message);
       }
