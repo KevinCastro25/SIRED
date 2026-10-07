@@ -145,11 +145,13 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
   const [nombre, setNombre] = useState('');
   const [enviandoReserva, setEnviandoReserva] = useState(false);
   const [reservaConfirmada, setReservaConfirmada] = useState<{
+    codigo?: string;
     empleada: string;
     servicio: string;
     fecha: string;
     hora: string;
     precio: number;
+    telefono: string;
   } | null>(null);
 
   // Cargar info del spa desde el backend si está disponible
@@ -164,16 +166,13 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
       .catch(() => {});
   }, []);
 
-  // Cargar slots cuando cambia la fecha o la empleada en el modal
-  useEffect(() => {
-    if (!modalAbierto || !fecha) return;
-
+  const cargarSlots = (f = fecha, emp = empleadaId) => {
+    if (!f) return;
     setCargandoSlots(true);
     setAvisoSlots(null);
-    setHoraSeleccionada(null);
 
-    const query = new URLSearchParams({ date: fecha });
-    if (empleadaId) query.set('cancha_id', empleadaId);
+    const query = new URLSearchParams({ date: f });
+    if (emp) query.set('cancha_id', emp);
 
     fetch(`/api/spa/slots?${query.toString()}`)
       .then((r) => r.json())
@@ -183,7 +182,7 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
       })
       .catch(() => {
         // Fallback de horarios entre 9:30 am y 5:30 pm
-        const dObj = new Date(`${fecha}T12:00:00-05:00`);
+        const dObj = new Date(`${f}T12:00:00-05:00`);
         if (dObj.getDay() === 0) {
           setSlots([]);
           setAvisoSlots('Los domingos estamos cerrados. Atendemos con amor de Lunes a Sábado de 9:30 am a 5:30 pm 💕');
@@ -192,6 +191,13 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
         }
       })
       .finally(() => setCargandoSlots(false));
+  };
+
+  // Cargar slots cuando cambia la fecha o la empleada en el modal
+  useEffect(() => {
+    if (!modalAbierto || !fecha) return;
+    setHoraSeleccionada(null);
+    cargarSlots(fecha, empleadaId);
   }, [modalAbierto, fecha, empleadaId]);
 
   const abrirModal = (s: Servicio) => {
@@ -205,6 +211,8 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
   const cerrarModal = () => {
     setModalAbierto(false);
     setPaso(1);
+    setHoraSeleccionada(null);
+    setReservaConfirmada(null);
   };
 
   const handleConfirmarReserva = async () => {
@@ -232,25 +240,32 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
 
       if (res.ok) {
         setReservaConfirmada({
+          codigo: data.codigoReserva,
           empleada: data.empleada || 'Manicurista asignada',
           servicio: servicioSeleccionado.nombre,
           fecha,
           hora: horaSeleccionada,
           precio: servicioSeleccionado.precio,
+          telefono: telefono.trim(),
         });
         setPaso(3);
+        // Refrescar slots inmediatamente para que la hora reservada ya no aparezca
+        cargarSlots(fecha, empleadaId);
       } else {
         alert(data.error || 'Ocurrió un error al agendar tu cita.');
+        cargarSlots(fecha, empleadaId);
       }
     } catch {
       // Fallback local exitoso si offline
       const empNombre = empleadas.find((e) => e.id === empleadaId)?.nombre || 'Manicurista asignada';
       setReservaConfirmada({
+        codigo: 'WEB-' + Math.floor(1000 + Math.random() * 9000),
         empleada: empNombre,
         servicio: servicioSeleccionado.nombre,
         fecha,
         hora: horaSeleccionada,
         precio: servicioSeleccionado.precio,
+        telefono: telefono.trim(),
       });
       setPaso(3);
     } finally {
@@ -652,11 +667,30 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
 
                     <div className="space-y-1">
                       <h2 className="text-xl font-bold text-[#2D2529]">
-                        ¡Cita <span className="italic text-[#C74B66] font-serif">reservada!</span>
+                        ¡Cita <span className="italic text-[#C74B66] font-serif">confirmada!</span>
                       </h2>
-                      <p className="text-xs text-[#7D6870] max-w-sm mx-auto leading-relaxed">
-                        Te esperamos, reina. Te enviaremos recordatorios automáticos por WhatsApp 1 día antes y el mismo día de tu cita 💕.
+                      {reservaConfirmada.codigo && (
+                        <div className="pt-0.5">
+                          <span className="inline-block bg-[#FCE8EF] text-[#8C243B] text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-[#F2C4D2]">
+                            Voucher #{reservaConfirmada.codigo}
+                          </span>
+                        </div>
+                      )}
+                      <p className="text-xs text-[#7D6870] max-w-sm mx-auto leading-relaxed pt-1">
+                        ¡Listo, reina! Enviamos tu comprobante oficial (voucher) al WhatsApp{' '}
+                        <strong className="text-[#8C243B]">{reservaConfirmada.telefono}</strong>.
                       </p>
+                    </div>
+
+                    {/* Tarjeta de recordatorio automático 1 día antes */}
+                    <div className="bg-[#FFF5F7] border border-[#F2C4D2] rounded-xl p-3 text-left flex items-start gap-2.5 text-xs">
+                      <IconBrandWhatsapp className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <p className="font-bold text-[#8C243B]">Recordatorio automático</p>
+                        <p className="text-[11px] text-[#7D6870] leading-relaxed">
+                          Te enviaremos un mensaje de recordatorio a tu WhatsApp <strong>1 día antes</strong> de tu cita.
+                        </p>
+                      </div>
                     </div>
 
                     {/* Resumen */}
@@ -677,6 +711,10 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
                         <span className="text-[#7D6870]">Hora:</span>
                         <span className="font-bold text-[#2D2529]">{reservaConfirmada.hora}</span>
                       </div>
+                      <div className="flex justify-between border-b border-[#FCE8EF] pb-1.5">
+                        <span className="text-[#7D6870]">Lugar:</span>
+                        <span className="font-medium text-[#2D2529]">Pereira, Cuba (Calle 66 bis #26-57)</span>
+                      </div>
                       <div className="flex justify-between pt-1">
                         <span className="text-[#7D6870] font-bold">Total a pagar en el spa:</span>
                         <span className="font-extrabold text-[#8C243B] font-mono text-sm">
@@ -689,7 +727,7 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
                       onClick={cerrarModal}
                       className="w-full py-3 bg-[#8C243B] hover:bg-[#731D30] text-white font-bold text-xs rounded-xl transition shadow-xs cursor-pointer"
                     >
-                      Listo
+                      Entendido, muchas gracias
                     </button>
                   </div>
                 )}

@@ -128,6 +128,11 @@ async function enviarMensajeWhatsApp(
   customToken?: string,
   customPhoneId?: string
 ) {
+  let cleanTo = String(to).replace(/\D/g, '');
+  if (cleanTo.length === 10 && cleanTo.startsWith('3')) {
+    cleanTo = `57${cleanTo}`;
+  }
+
   const token = customToken || process.env.WHATSAPP_TOKEN;
   const phoneId = customPhoneId || process.env.WHATSAPP_PHONE_NUMBER_ID;
 
@@ -145,7 +150,7 @@ async function enviarMensajeWhatsApp(
     payload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
-      to,
+      to: cleanTo,
       type: 'interactive',
       interactive: {
         type: message.interactive.type,
@@ -163,14 +168,14 @@ async function enviarMensajeWhatsApp(
     payload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
-      to,
+      to: cleanTo,
       type: 'text',
       text: { body: textBody },
     };
   }
 
   if (!token || !phoneId) {
-    console.log(`[WHATSAPP MENSAJE a ${to}]:`, JSON.stringify(payload, null, 2));
+    console.log(`[WHATSAPP MENSAJE a ${cleanTo}]:`, JSON.stringify(payload, null, 2));
     return;
   }
 
@@ -796,8 +801,8 @@ app.get('/api/spa/slots', async (req: Request, res: Response) => {
     // Franjas horarias de 9:30 am a 5:30 pm (último turno inicia a las 16:30)
     const horasBase = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
 
-    const inicioDia = `${date}T00:00:00-05:00`;
-    const finDia = `${date}T23:59:59-05:00`;
+    const inicioDia = new Date(`${date}T00:00:00-05:00`).toISOString();
+    const finDia = new Date(`${date}T23:59:59-05:00`).toISOString();
 
     const { data: reservasOcupadas } = await supabase
       .from('reservas')
@@ -808,16 +813,40 @@ app.get('/api/spa/slots', async (req: Request, res: Response) => {
       .lte('fecha_inicio', finDia);
 
     const ocupadas = reservasOcupadas || [];
+    const ahoraMs = Date.now();
     const slotsDisponibles: string[] = [];
 
     for (const h of horasBase) {
+      const slotStartMs = new Date(`${date}T${h}:00-05:00`).getTime();
+      const slotEndMs = slotStartMs + 60 * 60 * 1000;
+
+      // Si la fecha es hoy y la hora ya pasó, no se puede agendar
+      if (slotStartMs <= ahoraMs) {
+        continue;
+      }
+
+      // Buscar qué manicuristas están ocupadas en esta franja mediante solapamiento temporal
+      const manicuristasOcupadasEnHora = ocupadas
+        .filter(r => {
+          const rStart = new Date(r.fecha_inicio).getTime();
+          const rEnd = new Date(r.fecha_fin).getTime();
+          return rStart < slotEndMs && rEnd > slotStartMs;
+        })
+        .map(r => r.cancha_id);
+
       if (cancha_id) {
-        const estaOcupada = ocupadas.some(r => r.cancha_id === cancha_id && r.fecha_inicio.includes(`T${h}`));
-        if (!estaOcupada) slotsDisponibles.push(h);
+        // Si el cliente eligió una manicurista específica
+        const estaOcupada = manicuristasOcupadasEnHora.includes(cancha_id as string);
+        if (!estaOcupada) {
+          slotsDisponibles.push(h);
+        }
       } else {
-        const empleadasOcupadasEnHora = ocupadas.filter(r => r.fecha_inicio.includes(`T${h}`)).map(r => r.cancha_id);
-        const hayLibre = listaEmpleadas.some(e => !empleadasOcupadasEnHora.includes(e.id));
-        if (hayLibre) slotsDisponibles.push(h);
+        // Si no eligió manicurista (cualquiera disponible):
+        // Hay disponibilidad si al menos UNA manicurista está libre
+        const hayLibre = listaEmpleadas.some(e => !manicuristasOcupadasEnHora.includes(e.id));
+        if (hayLibre) {
+          slotsDisponibles.push(h);
+        }
       }
     }
 
@@ -831,7 +860,7 @@ app.get('/api/spa/slots', async (req: Request, res: Response) => {
   }
 });
 
-// Confirmar reserva web (100% directa, sin anticipo)
+// Confirmar reserva web (100% directa, sin anticipo) con Voucher y prevención de duplicados
 app.post('/api/spa/reservar', async (req: Request, res: Response) => {
   const {
     servicio_nombre,
@@ -864,26 +893,59 @@ app.post('/api/spa/reservar', async (req: Request, res: Response) => {
       .eq('activa', true);
 
     const listaEmpleadas = empleadas || [];
-
-    let empleadaAsignada = listaEmpleadas.find(e => e.id === cancha_id);
-
-    if (!empleadaAsignada) {
-      const { data: reservasEnHora } = await supabase
-        .from('reservas')
-        .select('cancha_id')
-        .in('cancha_id', listaEmpleadas.map(e => e.id))
-        .neq('estado', 'cancelada')
-        .eq('fecha_inicio', `${fecha}T${hora}:00-05:00`);
-
-      const ocupadasIds = (reservasEnHora || []).map(r => r.cancha_id);
-      empleadaAsignada = listaEmpleadas.find(e => !ocupadasIds.includes(e.id)) || listaEmpleadas[0];
+    if (listaEmpleadas.length === 0) {
+      return res.status(400).json({ error: 'No hay personal registrado en el spa' });
     }
 
-    const cliente = await BookingService.getOrCreateCliente(cliente_telefono, cliente_nombre);
-
     const dInicio = new Date(`${fecha}T${hora}:00-05:00`);
-    const dFin = new Date(dInicio.getTime() + (duracion_minutos || 60) * 60 * 1000);
-    const fechaFinIso = dFin.toISOString();
+    const dFin = new Date(dInicio.getTime() + (Number(duracion_minutos) || 60) * 60 * 1000);
+
+    // 1. Validar que la hora no esté en el pasado
+    if (dInicio.getTime() <= Date.now()) {
+      return res.status(400).json({ error: 'No puedes reservar un horario que ya pasó.' });
+    }
+
+    // 2. Buscar reservas activas solapadas en esta franja para evitar duplicados
+    const { data: reservasSolapadas } = await supabase
+      .from('reservas')
+      .select('id, cancha_id, fecha_inicio, fecha_fin')
+      .in('cancha_id', listaEmpleadas.map(e => e.id))
+      .neq('estado', 'cancelada')
+      .lt('fecha_inicio', dFin.toISOString())
+      .gt('fecha_fin', dInicio.toISOString());
+
+    const ocupadasIds = (reservasSolapadas || []).map(r => r.cancha_id);
+
+    let empleadaAsignada: any;
+
+    if (cancha_id) {
+      if (ocupadasIds.includes(cancha_id)) {
+        return res.status(409).json({
+          error: 'La manicurista seleccionada ya tiene una cita agendada en este horario. Por favor elige otra hora o especialista.',
+        });
+      }
+      empleadaAsignada = listaEmpleadas.find(e => e.id === cancha_id);
+      if (!empleadaAsignada) {
+        return res.status(404).json({ error: 'Especialista no encontrada' });
+      }
+    } else {
+      // Asignar automáticamente una manicurista libre
+      const disponibles = listaEmpleadas.filter(e => !ocupadasIds.includes(e.id));
+      if (disponibles.length === 0) {
+        return res.status(409).json({
+          error: 'Lo sentimos, todos los turnos para este horario ya fueron reservados. Por favor selecciona otro horario.',
+        });
+      }
+      empleadaAsignada = disponibles[0];
+    }
+
+    // Normalizar teléfono celular (formato Colombia: 573...)
+    let cleanPhone = String(cliente_telefono).replace(/\D/g, '');
+    if (cleanPhone.length === 10 && cleanPhone.startsWith('3')) {
+      cleanPhone = `57${cleanPhone}`;
+    }
+
+    const cliente = await BookingService.getOrCreateCliente(cleanPhone, cliente_nombre.trim());
 
     const notas = `💅 Servicio: ${servicio_nombre || 'Uñas'} | Reserva Web JL Mímate Nails | Pago en el spa (Sin cobro anticipado)`;
 
@@ -893,7 +955,7 @@ app.post('/api/spa/reservar', async (req: Request, res: Response) => {
         cancha_id: empleadaAsignada.id,
         cliente_id: cliente.id,
         fecha_inicio: dInicio.toISOString(),
-        fecha_fin: fechaFinIso,
+        fecha_fin: dFin.toISOString(),
         valor_total: precio || 35000,
         valor_anticipo_requerido: 0,
         estado: 'confirmada',
@@ -904,25 +966,46 @@ app.post('/api/spa/reservar', async (req: Request, res: Response) => {
 
     if (errRes) throw errRes;
 
-    // Enviar confirmación automática por WhatsApp
+    // Generar y enviar VOUCHER oficial por WhatsApp
     const precioFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(precio || 35000);
-    const mensajeWhatsApp =
-      `🌸 *¡CITA CONFIRMADA EN JL MÍMATE NAILS!* 💅✨\n\n` +
-      `¡Hola *${cliente_nombre}*! Tu cita ha sido agendada con éxito en nuestro spa de uñas:\n\n` +
-      `💅 *Servicio:* ${servicio_nombre}\n` +
-      `👩‍🎨 *Especialista:* ${empleadaAsignada.nombre}\n` +
-      `📅 *Fecha:* ${fecha}\n` +
-      `⏰ *Hora:* ${hora}\n` +
-      `💰 *Total a pagar:* ${precioFmt} (Pago en el spa - sin cobro anticipado)\n\n` +
-      `📍 *Ubicación:* Pereira · Spa de Uñas\n\n` +
-      `🔔 *Recordatorios automáticos:* Te enviaremos un recordatorio por aquí *1 día antes* y *el mismo día de tu cita*.\n` +
-      `¡Gracias por elegirnos! Nos vemos pronto para consentirte reina 💕🌸`;
+    const fechaLegible = dInicio.toLocaleDateString('es-CO', {
+      timeZone: 'America/Bogota',
+      weekday: 'long',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+
+    const codigoReserva = (reserva.id || '').slice(0, 8).toUpperCase();
+
+    const voucherWhatsApp =
+      `══════════════════════════\n` +
+      `🌸 *JL MÍMATE NAILS* 🌸\n` +
+      `_Comprobante de Cita Web_\n` +
+      `══════════════════════════\n\n` +
+      `¡Hola *${cliente_nombre.trim()}*! 💅 Tu cita ha sido agendada con éxito en nuestro spa de uñas. Aquí tienes tu voucher oficial:\n\n` +
+      `📌 *CÓDIGO DE RESERVA:* #${codigoReserva}\n` +
+      `💅 *SERVICIO:* ${servicio_nombre}\n` +
+      `👩‍🎨 *ESPECIALISTA:* ${empleadaAsignada.nombre}\n` +
+      `📅 *FECHA:* ${fechaLegible}\n` +
+      `⏰ *HORA:* ${hora}\n` +
+      `⏱️ *DURACIÓN APROX:* ${duracion_minutos} min\n` +
+      `💰 *VALOR A PAGAR:* ${precioFmt}\n` +
+      `✨ *MODALIDAD:* Pago en el spa (sin cobros anticipados)\n\n` +
+      `📍 *DIRECCIÓN:* Pereira, Cuba (Calle 66 bis #26-57)\n` +
+      `🏢 *LUGAR:* JL Mímate Nails - Spa de Uñas\n\n` +
+      `──────────────────────────\n` +
+      `🔔 *RECORDATORIO AUTOMÁTICO:*\n` +
+      `Te enviaremos un mensaje de recordatorio por este mismo WhatsApp *1 día antes* de tu cita para que no lo olvides.\n` +
+      `──────────────────────────\n\n` +
+      `Si necesitas reprogramar o tienes alguna duda, puedes responder directamente a este mensaje.\n` +
+      `¡Nos vemos pronto para consentirte reina! 💕🌸`;
 
     let waEnviado = false;
     try {
       await enviarMensajeWhatsApp(
-        cliente_telefono,
-        mensajeWhatsApp,
+        cleanPhone,
+        voucherWhatsApp,
         complejo?.whatsapp_token,
         complejo?.whatsapp_phone_number_id
       );
@@ -936,6 +1019,8 @@ app.post('/api/spa/reservar', async (req: Request, res: Response) => {
       reserva,
       empleada: empleadaAsignada.nombre,
       waEnviado,
+      codigoReserva,
+      voucher: voucherWhatsApp,
     });
   } catch (error: any) {
     console.error('Error creando reserva web en spa:', error);

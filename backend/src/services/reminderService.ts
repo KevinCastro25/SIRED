@@ -49,12 +49,18 @@ export class ReminderService {
 
       const nombreCliente = cliente.nombre || 'Cliente';
       const fechaCita = new Date(r.fecha_inicio).toLocaleDateString('es-CO', {
+        timeZone: 'America/Bogota',
         weekday: 'long',
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
       });
-      const horaInicio = r.fecha_inicio.split('T')[1].slice(0, 5);
+      const horaInicio = new Date(r.fecha_inicio).toLocaleTimeString('es-CO', {
+        timeZone: 'America/Bogota',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
 
       let mensaje = '';
 
@@ -70,8 +76,8 @@ export class ReminderService {
           `👩‍🎨 *Especialista:* ${cancha.nombre}\n` +
           `📅 *Fecha:* ${fechaCita}\n` +
           `⏰ *Hora:* ${horaInicio}\n\n` +
-          `📍 Te esperamos en nuestro Spa de Uñas en Pereira.\n` +
-          `✨ *Nota:* Recuerda que cancelas el valor total en el spa (sin cobros anticipados).\n` +
+          `📍 *Lugar:* Pereira, Cuba (Calle 66 bis #26-57)\n` +
+          `✨ *Nota:* Recuerda que cancelas el valor en el spa (sin cobros anticipados).\n` +
           `Si necesitas reprogramar o tienes alguna pregunta, respóndenos a este mensaje. ¡Nos vemos mañana para consentirte reina! 💕`;
       } else {
         mensaje =
@@ -121,32 +127,26 @@ export class ReminderService {
       const cliente = r.clientes as any;
       const cancha = r.canchas as any;
       const complejo = cancha?.complejos as any;
+      // Para JL Mímate Nails (Spa de Uñas), el recordatorio se realiza ÚNICAMENTE 1 día antes
+      if (complejo?.slug === 'mimate-nails' || complejo?.tipo_negocio === 'belleza_unas') {
+        continue;
+      }
+
       const telefono = cliente?.telefono_wa;
       if (!telefono) continue;
 
       const nombreCliente = cliente.nombre || 'Cliente';
-      const horaInicio = r.fecha_inicio.split('T')[1].slice(0, 5);
+      const horaInicio = new Date(r.fecha_inicio).toLocaleTimeString('es-CO', {
+        timeZone: 'America/Bogota',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
 
-      let mensaje = '';
-
-      if (complejo?.slug === 'mimate-nails' || complejo?.tipo_negocio === 'belleza_unas') {
-        let servicio = 'tu cita de uñas';
-        const matchSvc = notas.match(/Servicio:\s*([^|[\n]+)/i);
-        if (matchSvc && matchSvc[1]) servicio = matchSvc[1].trim();
-
-        mensaje =
-          `🌸 *¡HOY ES TU CITA EN JL MÍMATE NAILS!* 💅✨\n\n` +
-          `¡Hola *${nombreCliente}*! Te esperamos hoy a las *${horaInicio}* para tu cita:\n\n` +
-          `💅 *Servicio:* ${servicio}\n` +
-          `👩‍🎨 *Atención con:* ${cancha.nombre}\n` +
-          `⏰ *Hora:* ${horaInicio}\n\n` +
-          `Te recomendamos llegar 5 minuticos antes. ¡Todo nuestro equipo está listo para dejar tus uñas impecables y hermosas! 💕🌸`;
-      } else {
-        mensaje =
-          `🔔 *RECORDATORIO DE TU TURNO HOY*\n\n` +
-          `¡Hola *${nombreCliente}*! Te recordamos tu cita hoy en *${complejo.nombre}* a las *${horaInicio}* con ${cancha.nombre}.\n\n` +
-          `Te esperamos puntualmente. ¡Que tengas un excelente día!`;
-      }
+      const mensaje =
+        `🔔 *RECORDATORIO DE TU TURNO HOY*\n\n` +
+        `¡Hola *${nombreCliente}*! Te recordamos tu cita hoy en *${complejo.nombre}* a las *${horaInicio}* con ${cancha.nombre}.\n\n` +
+        `Te esperamos puntualmente. ¡Que tengas un excelente día!`;
 
       await this.enviarWhatsApp(telefono, mensaje, complejo?.whatsapp_token, complejo?.whatsapp_phone_number_id);
 
@@ -162,11 +162,16 @@ export class ReminderService {
   }
 
   private static async enviarWhatsApp(to: string, message: string, tokenOverride?: string, phoneIdOverride?: string) {
+    let cleanPhone = to.replace(/\D/g, '');
+    if (cleanPhone.length === 10 && cleanPhone.startsWith('3')) {
+      cleanPhone = `57${cleanPhone}`;
+    }
+
     const token = tokenOverride || process.env.WHATSAPP_TOKEN;
     const phoneId = phoneIdOverride || process.env.WHATSAPP_PHONE_NUMBER_ID;
 
     if (!token || !phoneId) {
-      console.log(`[RECORDATORIO AUTOMÁTICO WHATSAPP a ${to}]:\n${message}`);
+      console.log(`[RECORDATORIO AUTOMÁTICO WHATSAPP a ${cleanPhone}]:\n${message}`);
       return;
     }
 
@@ -176,7 +181,7 @@ export class ReminderService {
         {
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
-          to,
+          to: cleanPhone,
           type: 'text',
           text: { body: message },
         },
