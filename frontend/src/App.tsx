@@ -8,6 +8,7 @@ import { NewBookingModal } from './components/NewBookingModal.tsx';
 import { NewComplejoModal } from './components/NewComplejoModal.tsx';
 import { LoginScreen } from './components/LoginScreen.tsx';
 import { MimateNailsBooking } from './components/MimateNailsBooking.tsx';
+import { MimateNailsDashboard } from './components/MimateNailsDashboard.tsx';
 import { Cancha, Reserva, Metricas, Complejo, PerfilUsuario } from './types.ts';
 import { supabase } from './config/supabase.ts';
 import { BrandLogo } from './components/BrandLogo.tsx';
@@ -301,13 +302,39 @@ export function App() {
   const slugRuta = ['login', 'admin', 'metricas', 'calendario'].includes(pathSlug) ? '' : pathSlug;
   const complejoActivo = complejos.find((c) => c.id === complejoActualId) || complejos[0];
 
+  // Si la ruta es el dashboard de administración / equipo del Spa de Uñas (JL Mímate Nails)
+  const esRutaSpaAdmin =
+    pathSlug === 'mimate-admin' ||
+    pathSlug === 'admin-mimate' ||
+    pathSlug === 'spa-admin' ||
+    pathSlug === 'spa-dashboard' ||
+    pathSlug === 'turnos-spa';
+
+  if (esRutaSpaAdmin) {
+    return (
+      <MimateNailsDashboard
+        onIrAWebReservas={() => {
+          window.history.pushState(null, '', '/reservar');
+          window.location.href = '/reservar';
+        }}
+        complejoId={complejos.find((c) => c.slug === 'mimate-nails')?.id}
+      />
+    );
+  }
+
   // Si la ruta es la página web de reservas públicas de JL Mímate Nails
-  const esRutaReservaPublica = pathSlug === 'reservar' || pathSlug.includes('mimate') || pathSlug.endsWith('/reservar');
+  const esRutaReservaPublica =
+    pathSlug === 'reservar' ||
+    pathSlug === 'mimate' ||
+    pathSlug === 'mimate-nails' ||
+    pathSlug.endsWith('/reservar');
+
   if (esRutaReservaPublica) {
     return (
       <MimateNailsBooking
         onIrAlAdmin={() => {
-          window.location.href = '/login';
+          window.history.pushState(null, '', '/mimate-admin');
+          window.location.href = '/mimate-admin';
         }}
       />
     );
@@ -486,7 +513,17 @@ export function App() {
               title="Abrir página web de reservas de clientes"
             >
               <span>🌸</span>
-              <span className="hidden lg:inline">Web de Clientes (/reservar)</span>
+              <span className="hidden lg:inline">Web Clientes</span>
+            </a>
+
+            {/* Botón directo al Dashboard del Spa de Uñas con 4 perfiles */}
+            <a
+              href="/mimate-admin"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FFF5F7] hover:bg-[#FCE8EF] text-[#8C243B] border border-[#F2C4D2] text-xs font-bold rounded-xl transition shadow-xs"
+              title="Abrir Dashboard del Equipo JL Mímate Nails con 4 perfiles"
+            >
+              <span>💅</span>
+              <span className="hidden lg:inline">Spa Dashboard (/mimate-admin)</span>
             </a>
             {esSuperAdmin && (
               <button

@@ -279,13 +279,14 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
 
   return (
     <div className="min-h-screen bg-[#FFF5F7] text-[#2D2529] font-sans antialiased selection:bg-[#F3C6D3] selection:text-[#8C243B]">
-      {/* Botón flotante para acceder a la administración (discreto en esquina superior) */}
+      {/* Botón flotante para acceder a la administración y turnos del equipo */}
       {onIrAlAdmin && (
         <button
           onClick={onIrAlAdmin}
-          className="fixed top-3 right-3 z-30 text-[11px] font-semibold tracking-wider uppercase bg-white/80 hover:bg-white text-[#8C243B] border border-[#F3C6D3] px-3 py-1.5 rounded-full shadow-xs backdrop-blur-md transition"
+          className="fixed top-3 right-3 z-30 text-[11px] font-semibold tracking-wider uppercase bg-white/90 hover:bg-white text-[#8C243B] border border-[#F2C4D2] px-3.5 py-1.5 rounded-full shadow-xs backdrop-blur-md transition cursor-pointer flex items-center gap-1.5"
         >
-          Acceso Administrador ⚙️
+          <span>Portal del Equipo & Admin</span>
+          <span>💅</span>
         </button>
       )}
 
