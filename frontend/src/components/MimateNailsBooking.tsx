@@ -333,13 +333,13 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
               WhatsApp
             </span>
             <a
-              href="https://wa.me/573155204567"
+              href="https://wa.me/573219610896"
               target="_blank"
               rel="noreferrer"
               className="text-xs font-bold text-[#8C243B] hover:text-[#C74B66] flex items-center justify-center gap-1 transition"
             >
               <IconBrandWhatsapp className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              315 520 4567 💬
+              321 961 0896 💬
             </a>
             <p className="text-[11px] text-[#7D6870]">Atención y dudas</p>
           </div>

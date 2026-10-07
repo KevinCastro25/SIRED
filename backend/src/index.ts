@@ -734,7 +734,7 @@ app.get('/api/spa/info', async (req: Request, res: Response) => {
         tipo_negocio: 'belleza_unas',
         direccion: 'Pereira, Risaralda · Spa de Uñas',
         ciudad: 'Pereira',
-        telefono_whatsapp: '573155204567',
+        telefono_whatsapp: '573219610896',
         hora_apertura: '09:30:00',
         hora_cierre: '17:30:00',
         porcentaje_anticipo_minimo: 0,
