@@ -279,55 +279,13 @@ export const MimateNailsBooking: React.FC<Props> = ({ onIrAlAdmin }) => {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(199,75,102,0.12),transparent_70%)] pointer-events-none" />
 
         <div className="relative z-10 max-w-2xl mx-auto space-y-4">
-          {/* LOGOTIPO VECTORIAL FIEL AL PDF (JL MÍMATE NAILS) */}
-          <div className="relative w-44 h-44 mx-auto flex items-center justify-center">
-            {/* Octágono exterior rosa con líneas dobles */}
-            <svg
-              className="absolute inset-0 w-full h-full text-[#C74B66]/60 drop-shadow-sm"
-              viewBox="0 0 200 200"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* Marco Octogonal 1 */}
-              <polygon
-                points="58,10 142,10 190,58 190,142 142,190 58,190 10,142 10,58"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                fill="#FFF0F5"
-                fillOpacity="0.4"
-              />
-              {/* Marco Octogonal 2 más fino */}
-              <polygon
-                points="62,18 138,18 182,62 182,138 138,182 62,182 18,138 18,62"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeDasharray="4 2"
-              />
-              {/* Ramas florales sutiles laterales */}
-              <path
-                d="M145,120 Q160,110 165,95 Q170,120 155,145 M160,105 Q175,100 178,110 M150,135 Q168,140 165,152"
-                stroke="#C74B66"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
-
-            {/* Monograma JL y Tipografía Cursiva */}
-            <div className="relative text-center flex flex-col items-center justify-center select-none pt-2">
-              <span
-                style={{ fontFamily: "'Playfair Display', 'Great Vibes', 'Cormorant Garamond', Georgia, serif" }}
-                className="text-6xl font-normal italic tracking-tighter text-[#1F191C] leading-none"
-              >
-                JL
-              </span>
-              <span
-                style={{ fontFamily: "'Great Vibes', 'Dancing Script', 'Brush Script MT', cursive" }}
-                className="text-xl text-[#8C243B] font-bold tracking-wide -mt-1"
-              >
-                Mímate Nails
-              </span>
-            </div>
+          {/* LOGOTIPO OFICIAL EXTRAÍDO DE LA PÁGINA 1 DEL PDF */}
+          <div className="relative w-44 h-44 sm:w-52 sm:h-52 mx-auto rounded-3xl overflow-hidden shadow-lg border-2 border-[#F2C4D2] bg-[#F9D2D9] transition-transform hover:scale-105 duration-300">
+            <img
+              src="/mimate-nails-logo.png"
+              alt="JL Mímate Nails Logo Oficial"
+              className="w-full h-full object-cover"
+            />
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#2D2529] tracking-tight">
