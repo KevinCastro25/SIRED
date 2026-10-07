@@ -175,14 +175,22 @@ export class WhatsAppFlow {
       }
     }
 
-    const rows: InteractiveRow[] = canchas.slice(0, 10).map((c) => ({
+    const rows: InteractiveRow[] = canchas.slice(0, 9).map((c) => ({
       id: `cancha_${c.id}`,
       title: c.nombre.slice(0, 24),
       description: `${c.deporte.toUpperCase().replace('_', ' ')} • $${c.precio_estandar.toLocaleString('es-CO')}`.slice(0, 72),
     }));
 
+    // Opción para hablar directamente con un encargado o asesor
+    rows.push({
+      id: 'contacto_asesor',
+      title: '💬 Hablar con Asesor',
+      description: 'Atención personalizada con encargado',
+    });
+
     const textoRespuesta = `👋 ¡Hola ${nombrePush || ''}! Bienvenido a las reservas 24/7 de *${complejo.nombre}*.\n\n` +
-      `Por favor abre el menú desplegable a continuación para seleccionar la cancha en la que deseas jugar ⚽🎾:`;
+      `• Abre el menú desplegable a continuación para seleccionar tu cancha o servicio ⚽🎾.\n` +
+      `• O puedes escribir *ASESOR* en cualquier momento para hablar con un encargado.`;
 
     return {
       texto: textoRespuesta,
@@ -190,12 +198,12 @@ export class WhatsAppFlow {
         type: 'list',
         header: complejo.nombre.slice(0, 60),
         body: textoRespuesta,
-        footer: 'Toca abajo para desplegar opciones',
+        footer: 'Elige del menú o escribe ASESOR',
         action: {
-          button: 'Elegir Cancha',
+          button: 'Elegir Opción',
           sections: [
             {
-              title: 'Canchas Disponibles',
+              title: 'Canchas y Opciones',
               rows,
             },
           ],
@@ -268,18 +276,23 @@ export class WhatsAppFlow {
         title: '✏️ Otra fecha',
         description: 'Escribe cualquier fecha del año',
       },
+      {
+        id: 'contacto_asesor',
+        title: '💬 Hablar con Asesor',
+        description: 'Atención con un encargado del local',
+      },
     ];
 
     const sections: InteractiveSection[] = [
       { title: 'Fechas Próximas'.slice(0, 24), rows: filasProximosDias },
-      { title: 'Cualquier Otra Fecha'.slice(0, 24), rows: filasPersonalizadas },
+      { title: 'Otras Opciones'.slice(0, 24), rows: filasPersonalizadas },
     ];
 
     const texto = `🏟️ Cancha elegida: *${session.canchaSeleccionada.nombre}*\n\n` +
-      `¿Para qué fecha deseas tu partido?\n` +
-      `• Puedes desplegar el menú tocando *[Elegir Fecha]*.\n` +
-      `• O puedes **escribir directamente la fecha que quieras** en el chat:\n` +
-      `  👉 Ejemplos: *"18 de octubre"*, *"el próximo viernes"*, *"25/11"* o *"2026-10-15"*.`;
+      `¿Para qué fecha deseas tu partido o cita?\n` +
+      `• Despliega el menú tocando *[Elegir Fecha]*.\n` +
+      `• O puedes **escribir directamente la fecha que quieras** (ej: *"18 de octubre"*, *"el viernes"*).\n` +
+      `• O escribe *ASESOR* en cualquier momento para hablar con un encargado.`;
 
     return {
       texto,
@@ -287,7 +300,7 @@ export class WhatsAppFlow {
         type: 'list',
         header: 'Selección de Fecha',
         body: texto,
-        footer: 'Elige del menú o escribe tu fecha',
+        footer: 'Elige del menú o escribe ASESOR',
         action: {
           button: 'Elegir Fecha',
           sections,
@@ -528,7 +541,8 @@ export class WhatsAppFlow {
     }
 
     const texto = `📅 *${session.canchaSeleccionada!.nombre}* el *${fecha}*\n\n` +
-      `¡Hay turnos disponibles de 1 y 2 horas! Despliega el menú a continuación para seleccionar el horario de tu partido:`;
+      `¡Hay turnos disponibles de 1 y 2 horas! Despliega el menú a continuación para seleccionar el horario:\n` +
+      `• _(Si necesitas un horario especial o ayuda, escribe *ASESOR* para hablar con un encargado)_`;
 
     return {
       texto,
@@ -536,7 +550,7 @@ export class WhatsAppFlow {
         type: 'list',
         header: 'Horarios Disponibles',
         body: texto,
-        footer: 'Elige 1 hora o 2 horas seguidas',
+        footer: 'Elige del menú o escribe ASESOR',
         action: {
           button: 'Elegir Horario',
           sections,
@@ -684,7 +698,8 @@ export class WhatsAppFlow {
           `• Titular: *${titular}*\n\n` +
           `📸 *¿Cómo confirmar?*\n` +
           `Realiza la transferencia y *envía aquí la foto o captura del comprobante*.\n` +
-          `🤖 Nuestro sistema con Inteligencia Artificial lo auditará al instante para confirmar tu reserva, o será validado por la administración.`,
+          `🤖 Nuestro sistema con Inteligencia Artificial lo auditará al instante para confirmar tu reserva, o será validado por la administración.\n\n` +
+          `💬 _¿Tienes alguna duda con el pago o tu reserva? Escribe *ASESOR* en cualquier momento para hablar con un encargado._`,
       };
     } catch (err: any) {
       console.error('Error al apartar turno en reserva:', err);
@@ -1001,7 +1016,7 @@ export class WhatsAppFlow {
         `🛵 *¿Cómo pedir?*\n` +
         `Escríbenos directamente lo que deseas y tu dirección.\n` +
         `👉 *Ejemplo:* _"Quiero 2 clásicos de maracuyá con vodka para la Calle 15 # 4-20 Álamos"_\n` +
-        `¡Y te los despachamos de inmediato! 🍸💨`,
+        `• _(O escribe *ASESOR* en cualquier momento para hablar con un encargado de cocina o despacho)_ 🍸💨`,
     };
   }
 

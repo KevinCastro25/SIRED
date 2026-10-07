@@ -30,16 +30,41 @@ export class AIReceptionistService {
       'persona',
       'asesor',
       'asesora',
-      'recepcionista',
+      'encargado',
+      'encargada',
       'administrador',
       'administradora',
+      'admin',
+      'dueno',
+      'dueño',
+      'recepcionista',
       'alguien real',
       'hablar con alguien',
+      'hablar con un asesor',
+      'hablar con un encargado',
+      'hablar con el encargado',
+      'hablar con la encargada',
+      'hablar con encargado',
+      'hablar con asesor',
+      'contacto_asesor',
       'atencion al cliente',
+      'atencion personalizada',
       'queja',
       'reclamo',
       'contacto humano',
       'soporte',
+      'ayuda',
+      'contacto',
+      'comunicarme con un asesor',
+      'comunicarme con un encargado',
+      'comunicarme con alguien',
+      'comunicar con asesor',
+      'comunicar con encargado',
+      'numero de contacto',
+      'linea de atencion',
+      'llamar',
+      'telefono',
+      'whatsapp del encargado',
     ];
     return patrones.some((p) => t.includes(p));
   }
@@ -102,16 +127,26 @@ export class AIReceptionistService {
   static async responderConsulta(texto: string, complejo: Complejo): Promise<ReceptionistResponse> {
     const t = texto.toLowerCase().trim();
 
-    // 1. DERIVACIÓN A ASESOR HUMANO
+    // 1. DERIVACIÓN A ASESOR / ENCARGADO HUMANO
     if (this.esSolicitudHumano(t)) {
+      const telAdmin = complejo.telefono_whatsapp || 'la administración';
+      const telNumeros = (complejo.telefono_whatsapp || '').replace(/\D/g, '');
+      const enlaceWa = telNumeros.length >= 10 ? `https://wa.me/${telNumeros}` : null;
+
+      const respuestaTexto =
+        `👨‍💼 *Atención con un Asesor / Encargado - ${complejo.nombre}*\n\n` +
+        `¡Entendido! He registrado tu solicitud para que un encargado de *${complejo.nombre}* se comunique contigo 📱.\n\n` +
+        `📞 *Línea de contacto directo de la administración:*\n` +
+        `• Teléfono: *${telAdmin}*\n` +
+        (enlaceWa ? `• WhatsApp directo: ${enlaceWa}\n\n` : '\n') +
+        `✍️ Puedes dejar tu consulta o mensaje detallado por este chat y nuestro equipo te responderá a la brevedad.\n\n` +
+        `🤖 *¿Deseas volver a reservar automáticamente?*\n` +
+        `Escribe *HOLA* o *MENU* en cualquier momento.`;
+
       return {
         esPreguntaOAtencion: true,
         esSolicitudHumano: true,
-        respuestaTexto:
-          `👨‍💼 *Atención al Cliente - ${complejo.nombre}*\n\n` +
-          `He notificado a la administración de nuestro complejo. Un asesor revisará tu mensaje en breve para brindarte asistencia personalizada 📱.\n\n` +
-          `⚽ *¿Deseas consultar turnos disponibles mientras tanto?*\n` +
-          `Escribe *HOLA* o *MENU* en cualquier momento para reservar automáticamente.`,
+        respuestaTexto,
       };
     }
 
